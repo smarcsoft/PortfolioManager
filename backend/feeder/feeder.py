@@ -1,3 +1,4 @@
+from dataclasses import field
 from urllib import request
 from urllib.error import HTTPError
 from eod import EodHistoricalData
@@ -195,6 +196,13 @@ def __get_eod_field(prices:list, base_date:str, field_name:str, type:np.dtype)->
         toreturn[index]= np.float32(price[field_name])
     return toreturn
 
+def __pack_datapoint(dp,fieldname,prices):
+    dp['base_date']=prices[0]['date']
+    dp['name'] = fieldname
+    dp['data'] = __get_eod_field(prices, dp['base_date'], fieldname, np.float32)
+    return dp
+
+
 def __feed_db_eodprices(client,exchange, ticker):
     __logger.info("Fetching EOD prices for ticker %s from exchange %s", ticker['Code'], exchange['Code'])
     full_ticker= ticker['Code']+'.'+exchange['Code']
@@ -202,11 +210,18 @@ def __feed_db_eodprices(client,exchange, ticker):
     # Getting back [{date,open,high,low,close,adjusted_close,volume}]
     dp = {}
     if len(prices) >0 :
-        dp['base_date']=prices[0]['date']
-        dp['name'] = "open"
-        dp['data'] = __get_eod_field(prices, dp['base_date'], "open", np.float32)
+        dp=__pack_datapoint(dp,'open', prices)
         __feed_data_file(exchange['Code'], ticker['Code'], dp)
-
+        dp=__pack_datapoint(dp,'close', prices)
+        __feed_data_file(exchange['Code'], ticker['Code'], dp)
+        dp=__pack_datapoint(dp,'high', prices)
+        __feed_data_file(exchange['Code'], ticker['Code'], dp)
+        dp=__pack_datapoint(dp,'low', prices)
+        __feed_data_file(exchange['Code'], ticker['Code'], dp)
+        dp=__pack_datapoint(dp,'adjusted_close', prices)
+        __feed_data_file(exchange['Code'], ticker['Code'], dp)
+        dp=__pack_datapoint(dp,'volume', prices)
+        __feed_data_file(exchange['Code'], ticker['Code'], dp)
 
 def display_stats(stats):
     logger = logging.getLogger("summary")

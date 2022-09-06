@@ -8,6 +8,7 @@ import os
 import json
 import math
 import datetime
+import numpy as np
 
 __config = {}
 logging.config.fileConfig("config/logging.conf")
@@ -72,6 +73,11 @@ def __updatedb_exchange(exchange):
 
 
 def __updatedb_tickers(exchange):
+    '''
+    Update the database tree with the tickers for the exchange passed in argument
+    
+    Returns the list of tickers retrieved by the API
+    '''
     # For each exchange, get the list of tickers
     __logger.info("Getting the ticker list for exchange %s", exchange['Code'])
     try:
@@ -84,10 +90,12 @@ def __updatedb_tickers(exchange):
             __updatedb_ticker(exchange, symbol)
             if (steps != 0) and (progress % steps == 0):
                 __logger.info("%d%% processed...", progress / steps * 10)
+        return symbols
     except Exception as e:
         __logger.error("!!! Could not process exchange %s !!! -> %s", exchange['Code'], str(e))
         __stats['Exchanges']['Errors'].append(exchange['Code'])
         if exchange['Code'] in __stats['Exchanges']['Processed']: __stats['Exchanges']['Processed'].remove(exchange['Code']) 
+        return []
 
 def __update_stat_ticker_error(exchange, symbol, e):
     if exchange['Code'] not in __stats['Tickers']['Errors'].keys():
@@ -129,7 +137,7 @@ def __display_stats_exchanges(stats, logger):
         logger.info("*** {failed:d} exchanges could not be processed:".format(failed = exchange_error))
         exchanges = ""
         for exchange_error in stats['Exchanges']['Errors']:
-            exchanges = exchanges.join(exchange_error, ' - ')
+            exchanges = exchanges+exchange_error + ' - '
         logger.info(exchanges)
 
 def __display_stats_tickers(stats, logger):
@@ -148,6 +156,57 @@ def __display_stats_tickers(stats, logger):
         logger.info("Failure details for exchange {0}:".format(exchange))
         for ticker in stats['Tickers']['Errors'][exchange]:
             logger.info("{0:15} -> {1}".format(ticker['Code'],ticker['Error']))
+
+
+def __create_meta_data_file(filename, data_point):
+    s={}
+    s['base_date'] = data_point['base_date']
+    s['name'] = data_point['name']
+    with open(filename,'w') as metafile:
+        json.dump(s, metafile)
+
+
+def __create_data_file(filename, data_point:np.ndarray):
+    # Create the numpy array
+    np.savez_compressed(filename, data_point)
+
+def __feed_data_file(exchange, ticker, data_point):
+    #Check if file exists
+    db_loc = get_config('DB_LOCATION')
+    exchange_loc = os.path.join(db_loc, exchange)
+    ticker_loc = os.path.join(exchange_loc, ticker)
+    meta_loc = os.path.join(ticker_loc,data_point['name']+".meta")
+    data_loc = os.path.join(ticker_loc,data_point['name']+".npz")
+    __create_meta_data_file(meta_loc,data_point)
+    __create_data_file(data_loc,data_point['data'])
+
+def __get_eod_field(prices:list, base_date:str, field_name:str, type:np.dtype)->np.ndarray:
+    '''
+    returns a ndarray containing the data point values.
+    There is one element per date from the base date
+    '''
+    base_date = datetime.date.fromisoformat(base_date)
+    to_date = datetime.date.fromisoformat(prices[len(prices)-1]['date'])
+    number_of_elements = to_date - base_date 
+    toreturn = np.zeros(number_of_elements.days+1, type)
+    for price in prices:
+        dp_date = datetime.date.fromisoformat(price['date'])
+        index = (dp_date - base_date).days
+        toreturn[index]= np.float32(price[field_name])
+    return toreturn
+
+def __feed_db_eodprices(client,exchange, ticker):
+    __logger.info("Fetching EOD prices for ticker %s from exchange %s", ticker['Code'], exchange['Code'])
+    full_ticker= ticker['Code']+'.'+exchange['Code']
+    prices = client.get_prices_eod(full_ticker)
+    # Getting back [{date,open,high,low,close,adjusted_close,volume}]
+    dp = {}
+    if len(prices) >0 :
+        dp['base_date']=prices[0]['date']
+        dp['name'] = "open"
+        dp['data'] = __get_eod_field(prices, dp['base_date'], "open", np.float32)
+        __feed_data_file(exchange['Code'], ticker['Code'], dp)
+
 
 def display_stats(stats):
     logger = logging.getLogger("summary")
@@ -171,8 +230,9 @@ def build_initial_db(client):
     __logger.info("%d exchanges retrieved", len(exchanges))
     for exchange in exchanges:
         __updatedb_exchange(exchange)
-        __updatedb_tickers(exchange)
-     # Build the directory tree
+        tickers = __updatedb_tickers(exchange)
+        for ticker in tickers:
+            __feed_db_eodprices(client,exchange, ticker)
     # For each ticker, get the eod data
     # Create a subtree for each data point
 

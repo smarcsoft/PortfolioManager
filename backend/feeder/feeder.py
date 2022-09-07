@@ -1,6 +1,8 @@
+import argparse
 from dataclasses import field
 from urllib import request
 from urllib.error import HTTPError
+from urllib.parse import _NetlocResultMixinBytes
 from eod import EodHistoricalData
 import logging
 import logging.config
@@ -10,6 +12,7 @@ import json
 import math
 import datetime
 import numpy as np
+import pyodbc
 
 __config = {}
 logging.config.fileConfig("config/logging.conf")
@@ -98,9 +101,13 @@ def __updatedb_tickers(exchange):
         if exchange['Code'] in __stats['Exchanges']['Processed']: __stats['Exchanges']['Processed'].remove(exchange['Code']) 
         return []
 
-def __update_stat_ticker_error(exchange, symbol, e):
+def __update_stat_ticker_error(exchange:dict, symbol:dict, e:Exception):
+    '''
+    Update the __stats global dictionary to register the ticker in error with the message in exception e
+    '''
+    global __stats
     if exchange['Code'] not in __stats['Tickers']['Errors'].keys():
-        __stats['Tickers']['Errors'][exchange['Code']] = list()
+        __stats['Tickers']['Errors'][exchange['Code']] = []
     __stats['Tickers']['Errors'][exchange['Code']].append({'Code':symbol['Code'], 'Error':str(e)})
 
 def __updatedb_ticker(exchange, symbol):
@@ -148,10 +155,12 @@ def __display_stats_tickers(stats, logger):
     exchange_list = stats['Tickers']['Errors'].keys()
     for exchange in exchange_list:
         tickers_failed += len(stats['Tickers']['Errors'][exchange])
+    
+    total_tickers = tickers_success + tickers_failed
+    percent_processed = 100.0
+    if total_tickers != 0: percent_processed = tickers_success/(total_tickers)*100
 
-    logger.info("Tickers processed {success:d}/{total:d} [{pct:.1f}%]".format(success = tickers_success, 
-    total = tickers_success + tickers_failed, 
-    pct=(tickers_success/(tickers_success + tickers_failed)*100)))
+    logger.info("Tickers processed {success:d}/{total:d} [{pct:.1f}%]".format(success = tickers_success, total = total_tickers, pct=percent_processed))
     #For each exchange where i have at least one ticker failed, display the issue
     for exchange in exchange_list:
         logger.info("Failure details for exchange {0}:".format(exchange))
@@ -162,6 +171,7 @@ def __display_stats_tickers(stats, logger):
 def __create_meta_data_file(filename, data_point):
     s={}
     s['base_date'] = data_point['base_date']
+    s['last_date'] = data_point['last_date']
     s['name'] = data_point['name']
     with open(filename,'w') as metafile:
         json.dump(s, metafile)
@@ -196,32 +206,51 @@ def __get_eod_field(prices:list, base_date:str, field_name:str, type:np.dtype)->
         toreturn[index]= np.float32(price[field_name])
     return toreturn
 
-def __pack_datapoint(dp,fieldname,prices):
+def __pack_datapoint(dp:dict,fieldname:str,prices:list):
+    '''
+    Update the data point dictionary dp by adding the following keys:
+    
+    .base_date: The date of the oldest data point of the time series
+    .last_date: The date of the most recent data point
+    .name: The name of the field
+    .data: a numpy array containing the data time series. Empty values are 0.0.
+
+    Returns the dp dictionary containing the updated data point
+    '''
     dp['base_date']=prices[0]['date']
+    dp['last_date']=prices[len(prices)-1]['date']
     dp['name'] = fieldname
     dp['data'] = __get_eod_field(prices, dp['base_date'], fieldname, np.float32)
     return dp
 
 
-def __feed_db_eodprices(client,exchange, ticker):
-    __logger.info("Fetching EOD prices for ticker %s from exchange %s", ticker['Code'], exchange['Code'])
-    full_ticker= ticker['Code']+'.'+exchange['Code']
-    prices = client.get_prices_eod(full_ticker)
-    # Getting back [{date,open,high,low,close,adjusted_close,volume}]
-    dp = {}
-    if len(prices) >0 :
-        dp=__pack_datapoint(dp,'open', prices)
-        __feed_data_file(exchange['Code'], ticker['Code'], dp)
-        dp=__pack_datapoint(dp,'close', prices)
-        __feed_data_file(exchange['Code'], ticker['Code'], dp)
-        dp=__pack_datapoint(dp,'high', prices)
-        __feed_data_file(exchange['Code'], ticker['Code'], dp)
-        dp=__pack_datapoint(dp,'low', prices)
-        __feed_data_file(exchange['Code'], ticker['Code'], dp)
-        dp=__pack_datapoint(dp,'adjusted_close', prices)
-        __feed_data_file(exchange['Code'], ticker['Code'], dp)
-        dp=__pack_datapoint(dp,'volume', prices)
-        __feed_data_file(exchange['Code'], ticker['Code'], dp)
+def __feed_db_eodprices(client,exchange:dict, ticker:dict):
+    '''
+    Populate the database with end of day market data for the ticker belonging to this exchange 
+    '''
+    try:
+        __logger.info("Fetching EOD prices for ticker %s from exchange %s", ticker['Code'], exchange['Code'])
+        full_ticker= ticker['Code']+'.'+exchange['Code']
+        prices = client.get_prices_eod(full_ticker)
+        # Getting back [{date,open,high,low,close,adjusted_close,volume}]
+        dp = {}
+        if len(prices) >0 :
+            dp=__pack_datapoint(dp,'open', prices)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            dp=__pack_datapoint(dp,'close', prices)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            dp=__pack_datapoint(dp,'high', prices)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            dp=__pack_datapoint(dp,'low', prices)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            dp=__pack_datapoint(dp,'adjusted_close', prices)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            dp=__pack_datapoint(dp,'volume', prices)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+    except Exception as e:
+        __logger.error("Could not get eod data for ticker %s.%s->%s", ticker['Code'], exchange['Code'], str(e))
+        __update_stat_ticker_error(exchange, ticker, e)
+
 
 def display_stats(stats):
     logger = logging.getLogger("summary")
@@ -237,12 +266,23 @@ def display_stats(stats):
     
 
 
-def build_initial_db(client):
+def build_initial_db(client, exchange_list:list, sqlconnection):
     __reset_stats()
-    # Get the list of exchanges
-    __logger.info("Getting the list of exchanges...")
-    exchanges = client.get_exchanges()
-    __logger.info("%d exchanges retrieved", len(exchanges))
+    exchanges=[]
+    if len(exchange_list)==0:
+        # Get the list of exchanges
+        __logger.info("Getting the list of exchanges...")
+        exchanges = client.get_exchanges()
+        __logger.info("%d exchanges will be loaded in the database", len(exchanges))
+    else:
+        # Fetch each exchange details
+        exchs = client.get_exchanges()
+        for exchange_code in exchange_list:
+            #Find the exchange code in the exchange list exchs
+            es = [ex for ex in exchs if ex['Code']==exchange_code]
+            if(len(es) != 0):
+                exchanges.extend(es)
+
     for exchange in exchanges:
         __updatedb_exchange(exchange)
         tickers = __updatedb_tickers(exchange)
@@ -251,7 +291,56 @@ def build_initial_db(client):
     # For each ticker, get the eod data
     # Create a subtree for each data point
 
+def __process_arguments():
+    '''
+    Process the command line arguments
+
+    Returns a list of exchanges to be processed.
+    En empty list means all exchanges
+    '''
+    parser = argparse.ArgumentParser(description="Feed the database of the portfolio manager")
+    parser.add_argument('--debug', '--log', '-d', nargs='?', choices=['DEBUG', 'INFO','WARN', 'ERROR','CRITICAL'], help="Enable debugging with the specified level")
+    parser.add_argument('--exchanges', '-e', nargs='+', action="extend",type=str, help="Process the list of exchanges specified (by their codes)")
+    parser.add_argument('--version', action='version', version='%(prog)s 0.1')
+    args=parser.parse_args()
+    debug_level = None
+    if hasattr(args,"d"): debug_level = args.d 
+    if hasattr(args,"debug"): debug_level = args.debug 
+    if hasattr(args,"log"): debug_level = args.log 
+    if debug_level != None:
+        __logger.info("Debug level set to %s", debug_level.upper())
+        __logger.setLevel(debug_level.upper())
+
+    exchange_list=[]
+    if hasattr(args,"e"): exchange_list = args.e 
+    if hasattr(args,"exchanges"): exchange_list = args.exchanges 
+    if len(exchange_list) != 0:
+        __logger.info("Processing exchanges:%s",exchange_list)
+    return exchange_list
+
+def __connect_sql_db(): 
+    '''
+    Connects to SQL QB and return a connection or None if a connection cannot be established
+    '''
+    # Some other example server values are
+    # server = 'localhost\sqlexpress' # for a named instance
+    # server = 'myserver,port' # to specify an alternate port
+    try:
+        server = get_config("SQL_SERVER")
+        database = get_config("SQL_DB")
+        username = get_config("SQL_USER")
+        password = get_config("SQL_PASSWORD") 
+        connectionurl='DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password
+        __logger.info("Connecting to database server with:%s", connectionurl)
+        cnxn = pyodbc.connect(connectionurl)
+        return cnxn
+    except Exception as e:
+        __logger.error("Cannot connect to SQL database:%s", str(e))
+        return None
+
+exchange_list = __process_arguments()
 EOD_API_KEY = get_oed_apikey()
 client = EodHistoricalData(EOD_API_KEY)
-build_initial_db(client)
-display_stats(__stats)
+sqlconnection = __connect_sql_db()
+#build_initial_db(client, exchange_list, sqlconnection)
+#display_stats(__stats)

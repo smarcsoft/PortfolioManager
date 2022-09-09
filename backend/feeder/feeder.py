@@ -1,5 +1,6 @@
 import argparse
 from dataclasses import field
+from decimal import Decimal
 from urllib import request
 from urllib.error import HTTPError
 from urllib.parse import _NetlocResultMixinBytes
@@ -181,7 +182,25 @@ def __create_data_file(filename, data_point:np.ndarray):
     # Create the numpy array
     np.savez_compressed(filename, data_point)
 
-def __feed_data_file(exchange, ticker, data_point):
+def __update_meta_date_in_sqldb(connection:pyodbc.Connection, load_id:Decimal, start_date:str, end_date:str, ticker:str, dp_name:str):
+    try:
+        with connection:
+                cursor = connection.cursor()
+                load_time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                __logger.debug("Inserting ticker load meta data for %s.%s...", ticker, dp_name)
+                cursor.execute("SET NOCOUNT ON;INSERT INTO TickerLoad (exchange_load_id, ticker_code, data_point_name, start_date, end_date, load_time) VALUES (?,?,?,?,?,?)",
+                load_id, ticker, dp_name, start_date, end_date, load_time)
+                #get the load_id back
+                __logger.debug('...Successfully Inserted')
+    except Exception as e:
+        __logger.error("Failed: %s", str(e))
+
+
+def __feed_data_file(exchange:str, ticker:str, data_point:dict, connection:pyodbc.Connection, load_id:Decimal):
+    '''
+    Creates (and creates only, does not support update) the data point file in the DB
+    Updates the relational database PMFeeder with the meta data of the load (start and end dates...) if the connetion is not None
+    '''
     #Check if file exists
     db_loc = get_config('DB_LOCATION')
     exchange_loc = os.path.join(db_loc, exchange)
@@ -190,6 +209,10 @@ def __feed_data_file(exchange, ticker, data_point):
     data_loc = os.path.join(ticker_loc,data_point['name']+".npz")
     __create_meta_data_file(meta_loc,data_point)
     __create_data_file(data_loc,data_point['data'])
+    start_date = data_point['base_date']
+    end_date = data_point['last_date']
+    if connection != None:
+        __update_meta_date_in_sqldb(connection, load_id, start_date, end_date, ticker, data_point['name'])
 
 def __get_eod_field(prices:list, base_date:str, field_name:str, type:np.dtype)->np.ndarray:
     '''
@@ -224,7 +247,7 @@ def __pack_datapoint(dp:dict,fieldname:str,prices:list):
     return dp
 
 
-def __feed_db_eodprices(client,exchange:dict, ticker:dict):
+def __feed_db_eodprices(client,exchange:dict, ticker:dict, connection, load_id:Decimal):
     '''
     Populate the database with end of day market data for the ticker belonging to this exchange 
     '''
@@ -236,17 +259,17 @@ def __feed_db_eodprices(client,exchange:dict, ticker:dict):
         dp = {}
         if len(prices) >0 :
             dp=__pack_datapoint(dp,'open', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
             dp=__pack_datapoint(dp,'close', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
             dp=__pack_datapoint(dp,'high', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
             dp=__pack_datapoint(dp,'low', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
             dp=__pack_datapoint(dp,'adjusted_close', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
             dp=__pack_datapoint(dp,'volume', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp)
+            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
     except Exception as e:
         __logger.error("Could not get eod data for ticker %s.%s->%s", ticker['Code'], exchange['Code'], str(e))
         __update_stat_ticker_error(exchange, ticker, e)
@@ -264,7 +287,24 @@ def display_stats(stats):
     __display_stats_exchanges(stats, logger)
     __display_stats_tickers(stats, logger)
     
-
+def __init_load(exchange:dict, sqlconnection:pyodbc.Connection)->Decimal:
+    '''
+    Insert a new load into ExchangeLoad
+    Returns the newly inserted load id or -1 if error
+    '''
+    try:
+        __logger.debug("Inserting load in database...")
+        with sqlconnection:
+            cursor = sqlconnection.cursor()
+            cursor.execute("SET NOCOUNT ON;INSERT INTO ExchangeLoad (code, load_time) VALUES (?,?);SELECT @@IDENTITY as exchange_load_id;",exchange['Code'],datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+            #get the load_id back
+            rows = cursor.fetchall()
+            exch_id= rows[0].exchange_load_id
+            __logger.debug('...Successfully Inserted with new id %d', exch_id)
+            return exch_id
+    except Exception as e:
+        __logger.error("Failed: %s", str(e))
+        return -1        
 
 def build_initial_db(client, exchange_list:list, sqlconnection):
     __reset_stats()
@@ -286,10 +326,10 @@ def build_initial_db(client, exchange_list:list, sqlconnection):
     for exchange in exchanges:
         __updatedb_exchange(exchange)
         tickers = __updatedb_tickers(exchange)
+        if (len(tickers) >0) and (sqlconnection != None):
+            load_id = __init_load(exchange, sqlconnection)
         for ticker in tickers:
-            __feed_db_eodprices(client,exchange, ticker)
-    # For each ticker, get the eod data
-    # Create a subtree for each data point
+            __feed_db_eodprices(client,exchange, ticker, sqlconnection, load_id)
 
 def __process_arguments():
     '''
@@ -318,7 +358,7 @@ def __process_arguments():
         __logger.info("Processing exchanges:%s",exchange_list)
     return exchange_list
 
-def __connect_sql_db(): 
+def __connect_sql_db()->pyodbc.Connection: 
     '''
     Connects to SQL QB and return a connection or None if a connection cannot be established
     '''
@@ -342,5 +382,5 @@ exchange_list = __process_arguments()
 EOD_API_KEY = get_oed_apikey()
 client = EodHistoricalData(EOD_API_KEY)
 sqlconnection = __connect_sql_db()
-#build_initial_db(client, exchange_list, sqlconnection)
-#display_stats(__stats)
+build_initial_db(client, exchange_list, sqlconnection)
+display_stats(__stats)

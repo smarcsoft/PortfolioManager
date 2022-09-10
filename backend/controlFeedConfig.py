@@ -98,7 +98,34 @@ def __split_exchanges(batch_number:int, exchange_stats:list):
     __logger.info("All %d exchanges have been allocated within %d buckets", len(exchange_stats), batch_number)
     return buckets
 
+def __split_one_exchange(ex, parts):
+    '''
+    split exchange ex into parts parts and return the list of exchanges resulting
+    '''
+    org_size = ex['Size']
+    __logger.debug("Splitting exchange %s of size %d into %d parts", ex['Code'], org_size, parts)
+    new_size = int(org_size/parts)
+    toreturn = []
+    for i in range(parts):
+        split_ex = {}
+        split_ex['Code']=ex["Code"]+str(i+1)
+        if i != parts - 1:
+            split_ex['Size']= new_size
+        else:
+            split_ex['Size']= org_size-new_size*(parts-1)
+        __logger.debug("Exchange %s of size %d", split_ex['Code'], split_ex['Size'])
+        toreturn.append(split_ex)
+    return toreturn
 
+
+def __split_exchange(exchange_stats:list, exchange_code_to_split:str, parts:int):
+    for e in exchange_stats:
+        if e['Code'] == exchange_code_to_split:
+            exchange_stats.remove(e)
+            es = __split_one_exchange(e, parts)
+            exchange_stats.extend(es)
+            return
+    __logger.warn("Could not find exchange %s in the list of exchanges to split", exchange_code_to_split)
 
 API_KEY = get_config("EOD_API_KEY")
 client = EodHistoricalData(API_KEY)
@@ -119,6 +146,15 @@ for exchange in exchanges:
     except Exception as e:
         __logger.error("Error for %s -> %s", exchange['Code'], str(e))
 
+#Check if we have to split exchanges further
+exchanges_to_split = get_config("SPLIT_EXCHANGES")
+exchanges_codes_to_split = exchanges_to_split.split(',')
+for exchange_code_to_split in exchanges_codes_to_split:
+    #How many parts ?
+    parts = get_config("SPLIT_" + exchange_code_to_split.strip())
+    __split_exchange(exchange_stats, exchange_code_to_split, int(parts))
+
 bs = __split_exchanges(3, exchange_stats)
 print(json.dumps(bs, indent=True))
 
+#TODO: Allow the biggest exchanges to be split for a better spread and control of the batches

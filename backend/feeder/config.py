@@ -17,7 +17,7 @@ def __read_configuration():
     __logger.info("Reading configuration file config/pm.conf...")
     with open("config/pm.conf", "rt") as configfile:
         for line in configfile:
-            if not line.strip().startswith('#'):
+            if (len(line.strip())> 0) and (not line.strip().startswith('#')):
                 (key,value) = __parse_line(line)
                 __logger.debug("Found %s -> %s", key, value)
                 config[key.strip()] = value.strip()

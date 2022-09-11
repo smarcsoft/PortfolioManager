@@ -42,6 +42,7 @@ def __fillbucket(bucket_number:int, exchanges_remaining:list, buckets, buckets_s
     if buckets[bucket_number] == None: 
         buckets[bucket_number]={}
         buckets[bucket_number]['Exchanges'] = []
+        buckets[bucket_number]['Batch_Name'] = 'Batch_{n:02d}'.format(n=bucket_number+1)
         buckets[bucket_number]['Remaining_size'] = buckets_size
     exchanges_in_bucket = buckets[bucket_number]
         
@@ -71,7 +72,10 @@ def __fillbucket(bucket_number:int, exchanges_remaining:list, buckets, buckets_s
 def __split_exchanges(batch_number:int, exchange_stats:list):
     '''
     Algorithm splitting the ticker universes into batch_number batches
-    Returns a list of batch_number elements with each element being a list of echanges in that batch
+    Returns a list of batch_number elements with each element being dictionary with:
+    .Batch_Name being the name of the batch
+    .Remaining_Size number of tickers remaining to add in the element until it is full 
+    .Exchanges being the list of echanges in that batch
     '''
     universe_size = sum([stat['Size'] for stat in exchange_stats])
     __logger.debug("Total universe size:%d", universe_size)
@@ -109,6 +113,7 @@ def __split_one_exchange(ex, parts):
     for i in range(parts):
         split_ex = {}
         split_ex['Code']=ex["Code"]+str(i+1)
+        split_ex['Part']=i+1
         if i != parts - 1:
             split_ex['Size']= new_size
         else:
@@ -127,6 +132,9 @@ def __split_exchange(exchange_stats:list, exchange_code_to_split:str, parts:int)
             return
     __logger.warn("Could not find exchange %s in the list of exchanges to split", exchange_code_to_split)
 
+def __write_configuration(bs,configfile):
+    json.load
+
 API_KEY = get_config("EOD_API_KEY")
 client = EodHistoricalData(API_KEY)
 #To generate the list of exchanges, invoke generate_exchange_list(client)
@@ -141,6 +149,7 @@ for exchange in exchanges:
         __logger.info("%d symbols retrieved for exchange %s", len(symbols), exchange['Code'])
         exchange_stat = {}
         exchange_stat['Code']= exchange['Code']
+        exchange_stat['Part']=1 #not plit by default
         exchange_stat['Size'] = len(symbols)
         exchange_stats.append(exchange_stat)
     except Exception as e:
@@ -154,7 +163,6 @@ for exchange_code_to_split in exchanges_codes_to_split:
     parts = get_config("SPLIT_" + exchange_code_to_split.strip())
     __split_exchange(exchange_stats, exchange_code_to_split, int(parts))
 
-bs = __split_exchanges(3, exchange_stats)
-print(json.dumps(bs, indent=True))
-
-#TODO: Allow the biggest exchanges to be split for a better spread and control of the batches
+bs = __split_exchanges(10, exchange_stats)
+with open("config/controller.json","w") as config_file:
+    json.dump(bs, config_file)

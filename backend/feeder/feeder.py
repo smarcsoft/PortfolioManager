@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append(os.getcwd())
 import argparse
 from dataclasses import field
 from decimal import Decimal
@@ -8,7 +11,6 @@ from eod import EodHistoricalData
 import logging
 import logging.config
 import logging.handlers
-import os
 import json
 import math
 import datetime
@@ -43,7 +45,7 @@ def __updatedb_exchange(exchange):
         __stats['Exchanges']['Errors'].append(exchange['Code'])
 
 
-def __updatedb_tickers(exchange):
+def __updatedb_tickers(exchange,client):
     '''
     Update the database tree with the tickers for the exchange passed in argument
     
@@ -285,13 +287,14 @@ def build_initial_db(client, exchange_list:list, sqlconnection):
         exchs = client.get_exchanges()
         for exchange_code in exchange_list:
             #Find the exchange code in the exchange list exchs
+            #TODO: Support virtual exchanges
             es = [ex for ex in exchs if ex['Code']==exchange_code]
             if(len(es) != 0):
                 exchanges.extend(es)
 
     for exchange in exchanges:
         __updatedb_exchange(exchange)
-        tickers = __updatedb_tickers(exchange)
+        tickers = __updatedb_tickers(exchange,client)
         if (len(tickers) >0) and (sqlconnection != None):
             load_id = __init_load(exchange, sqlconnection)
         for ticker in tickers:
@@ -306,7 +309,7 @@ def __process_arguments():
     '''
     parser = argparse.ArgumentParser(description="Feed the database of the portfolio manager")
     parser.add_argument('--debug', '--log', '-d', nargs='?', choices=['DEBUG', 'INFO','WARN', 'ERROR','CRITICAL'], help="Enable debugging with the specified level")
-    parser.add_argument('--exchanges', '-e', nargs='+', action="extend",type=str, help="Process the list of exchanges specified (by their codes)")
+    parser.add_argument('--exchange', '-e', nargs='+', action="extend",type=str, help="Process the list of exchanges specified (by their codes)")
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
     args=parser.parse_args()
     debug_level = None
@@ -337,16 +340,35 @@ def __connect_sql_db()->pyodbc.Connection:
         username = get_config("SQL_USER")
         password = get_config("SQL_PASSWORD") 
         connectionurl='DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password
-        __logger.info("Connecting to database server with:%s", connectionurl)
+        __logger.debug("Connecting to database server with:%s", connectionurl)
         cnxn = pyodbc.connect(connectionurl)
         return cnxn
     except Exception as e:
         __logger.error("Cannot connect to SQL database:%s", str(e))
         return None
 
-exchange_list = __process_arguments()
-EOD_API_KEY = get_oed_apikey()
-client = EodHistoricalData(EOD_API_KEY)
-sqlconnection = __connect_sql_db()
-build_initial_db(client, exchange_list, sqlconnection)
-display_stats(__stats)
+
+def run_feeder_batch(batch_name:str):
+    '''
+    Run the feeder for the list of exchanges in batch identified by batch_name
+    '''
+    __logger.info("Running batch feeder process %s", batch_name)
+    api_key = get_oed_apikey()
+    client = EodHistoricalData(api_key)
+    sqlconnection = __connect_sql_db()
+    #TODO: Get the exchange list
+    build_initial_db(client, ['TODO'], sqlconnection)
+
+def run_feeder(exchange_list):
+    '''
+    Run the feeder for the list of exchanges passed in argument
+    '''
+    api_key = get_oed_apikey()
+    client = EodHistoricalData(api_key)
+    sqlconnection = __connect_sql_db()
+    build_initial_db(client, exchange_list, sqlconnection)
+
+if __name__ == '__main__':
+    exchange_list = __process_arguments()
+    run_feeder(exchange_list)
+    display_stats(__stats)

@@ -17,7 +17,7 @@ import math
 import datetime
 import numpy as np
 import pyodbc
-from config import get_config
+from config import get_config, process_arguments
 
 class FeederException(Exception): pass
 
@@ -35,14 +35,15 @@ __logger = logging.getLogger('feeder')
 # Tickers{"Errors"} -> [{"code-part:[]"}]: Errors is a list of dict with exchangecode-part being the key and the list of {"Code" (fully qualified ticker code), "Error" (error strings)} as values
 __stats={}
 
+__config_file = "config/pm.conf"
 
 def get_oed_apikey() -> str:
-    return get_config('EOD_API_KEY')
+    return get_config('EOD_API_KEY', configfile=__config_file)
 
 def __updatedb_exchange(exchange):
     #Check if the directory exists and if not create it
     try:
-        db_loc = get_config('DB_LOCATION')
+        db_loc = get_config('DB_LOCATION', configfile=__config_file)
         tocreate = os.path.join(db_loc, exchange['Code'])
         if not os.path.exists(tocreate):
             # Create the directory
@@ -101,7 +102,7 @@ def __updatedb_ticker(exchange, symbol):
     try:
         __logger.debug("Updating database for exchange %s and ticker %s", exchange['Code'], symbol['Code'])
         #__logger.debug(str(symbol))
-        db_loc = get_config('DB_LOCATION')
+        db_loc = get_config('DB_LOCATION', configfile=__config_file)
         exchange_loc = os.path.join(db_loc, exchange['Code'])
         ticker_loc = os.path.join(exchange_loc, symbol['Code'])
         if not os.path.exists(ticker_loc):
@@ -188,7 +189,7 @@ def __feed_data_file(exchange:str, ticker:str, data_point:dict, connection:pyodb
     Updates the relational database PMFeeder with the meta data of the load (start and end dates...) if the connetion is not None
     '''
     #Check if file exists
-    db_loc = get_config('DB_LOCATION')
+    db_loc = get_config('DB_LOCATION', configfile=__config_file)
     exchange_loc = os.path.join(db_loc, exchange)
     ticker_loc = os.path.join(exchange_loc, ticker)
     meta_loc = os.path.join(ticker_loc,data_point['name']+".meta")
@@ -265,7 +266,7 @@ def display_stats(stats):
     logger = logging.getLogger("summary")
     logger.setLevel(logging.INFO)
     d = datetime.datetime.now()
-    handler = logging.FileHandler(get_config("LOG_FILE_LOC")+"/feeder_run_{yyyy}-{mm:02d}-{dd:02d}_{hh:02d}_{mmm:02d}_{ss:02d}.log".format(yyyy=d.year, mm=d.month, dd=d.day, hh=d.hour, mmm=d.minute, ss=d.second))
+    handler = logging.FileHandler(get_config("LOG_FILE_LOC", configfile=__config_file)+"/feeder_run_{yyyy}-{mm:02d}-{dd:02d}_{hh:02d}_{mmm:02d}_{ss:02d}.log".format(yyyy=d.year, mm=d.month, dd=d.day, hh=d.hour, mmm=d.minute, ss=d.second))
     formatter = logging.Formatter('%(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -362,33 +363,6 @@ def build_initial_db(client, exchange_list:list, sqlconnection):
 
     __populate_exchanges(client, sqlconnection, exchanges)
 
-def __process_arguments():
-    '''
-    Process the command line arguments
-
-    Returns a list of exchanges to be processed.
-    En empty list means all exchanges
-    '''
-    parser = argparse.ArgumentParser(description="Feed the database of the portfolio manager")
-    parser.add_argument('--debug', '--log', '-d', nargs='?', choices=['DEBUG', 'INFO','WARN', 'ERROR','CRITICAL'], help="Enable debugging with the specified level")
-    parser.add_argument('--exchange', '-e', nargs='+', action="extend",type=str, help="Process the list of exchanges specified (by their codes)")
-    parser.add_argument('--version', action='version', version='%(prog)s 0.1')
-    args=parser.parse_args()
-    debug_level = None
-    if hasattr(args,"d"): debug_level = args.d 
-    if hasattr(args,"debug"): debug_level = args.debug 
-    if hasattr(args,"log"): debug_level = args.log 
-    if debug_level != None:
-        __logger.info("Debug level set to %s", debug_level.upper())
-        __logger.setLevel(debug_level.upper())
-
-    exchange_list=[]
-    if hasattr(args,"e"): exchange_list = args.e 
-    if hasattr(args,"exchange"): exchange_list = args.exchange 
-    if len(exchange_list) != 0:
-        __logger.info("Processing exchanges:%s",exchange_list)
-    return exchange_list
-
 def __connect_sql_db()->pyodbc.Connection: 
     '''
     Connects to SQL QB and return a connection or None if a connection cannot be established
@@ -397,10 +371,10 @@ def __connect_sql_db()->pyodbc.Connection:
     # server = 'localhost\sqlexpress' # for a named instance
     # server = 'myserver,port' # to specify an alternate port
     try:
-        server = get_config("SQL_SERVER")
-        database = get_config("SQL_DB")
-        username = get_config("SQL_USER")
-        password = get_config("SQL_PASSWORD") 
+        server = get_config("SQL_SERVER", configfile=__config_file)
+        database = get_config("SQL_DB", configfile=__config_file)
+        username = get_config("SQL_USER", configfile=__config_file)
+        password = get_config("SQL_PASSWORD", configfile=__config_file) 
         connectionurl='DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password
         __logger.debug("Connecting to database server with:%s", connectionurl)
         cnxn = pyodbc.connect(connectionurl)
@@ -413,9 +387,11 @@ def __connect_sql_db()->pyodbc.Connection:
 def __get_exchange_list(config:dict, batch_name:str)->list:
     exchange_list = []
     exchanges_in_batch = [batches['Exchanges'] for batches in config if batches['Batch_Name'] == batch_name]
-    for exchange in exchanges_in_batch:
+    if len(exchanges_in_batch) != 1:
+        raise FeederException("Could not find the batch {batch_name} in the configuration".format(batch_name=batch_name))
+    for exchange in exchanges_in_batch[0]:
         exch = (exchange['Code'], exchange['Size'], exchange['Part'], exchange['Start'])
-        exchange_list.add(exch)
+        exchange_list.append(exch)
     return exchange_list
 
 def __build_exchange_list(exchange_list:list):
@@ -452,7 +428,7 @@ def run_feeder(exchange_list):
 
 if __name__ == '__main__':
     try:
-        exchange_list = __process_arguments()
+        exchange_list,configfile = process_arguments()
         exchange_list = __build_exchange_list(exchange_list)
         run_feeder(exchange_list)
         display_stats(__stats)

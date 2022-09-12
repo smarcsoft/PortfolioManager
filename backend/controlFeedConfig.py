@@ -1,4 +1,5 @@
 import json
+from config import process_arguments
 from config import get_config
 import logging
 import logging.config
@@ -12,6 +13,12 @@ class AllocationError(Exception): pass
 
 '''
 Creates the json configuration file of the controlFeed
+
+Without any argument, the configuration file created will be based on the entire today's universe.
+The biggest exchanges will be split according to the configuration file 
+
+We can provide the -e or --exchanges argument to restrict the universe to the list of exchanges provided.
+
 '''
 
 def generate_exchange_list(client):
@@ -134,38 +141,39 @@ def __split_exchange(exchange_stats:list, exchange_code_to_split:str, parts:int)
             return
     __logger.warn("Could not find exchange %s in the list of exchanges to split", exchange_code_to_split)
 
-def __write_configuration(bs,configfile):
-    json.load
 
-API_KEY = get_config("EOD_API_KEY")
+exchanges,configfile = process_arguments()
+API_KEY = get_config("EOD_API_KEY", configfile=configfile)
 client = EodHistoricalData(API_KEY)
 #To generate the list of exchanges, invoke generate_exchange_list(client)
 #exchanges = ['US', 'LSE', 'NEO', 'TO', 'BE', 'F', 'STU', 'HA', 'XETRA', 'HM', 'MU', 'DU', 'MI', 'VI', 'LU', 'PA', 'BR', 'AS', 'LS', 'VX', 'SW', 'MC', 'IR', 'ST', 'OL', 'CO', 'HE', 'IC', 'PR', 'TA', 'HK', 'KQ', 'KO', 'WAR', 'BUD', 'PSE', 'SG', 'BSE', 'KAR', 'SR', 'TSE', 'SN', 'BK', 'JSE', 'SHG', 'NSE', 'AT', 'SHE', 'AU', 'JK', 'CM', 'VN', 'KLSE', 'RO', 'SA', 'BA', 'MX', 'IL', 'ZSE', 'BOND', 'TWO', 'EUBOND', 'LIM', 'GBOND', 'MONEY', 'EUFUND', 'MCX', 'FOREX', 'TW', 'IS', 'INDX', 'CC', 'COMM']
 # For each exchange, get the size of the universe
-exchanges = generate_exchange_list(client)
+
+if len(exchanges) == 0:
+    exchanges = [e['Code'] for e in generate_exchange_list(client)]
 exchange_stats=[]
 for exchange in exchanges:
     # Get the size of the universe
     try:
-        symbols = client.get_exchange_symbols(exchange=exchange['Code'])
-        __logger.info("%d symbols retrieved for exchange %s", len(symbols), exchange['Code'])
+        symbols = client.get_exchange_symbols(exchange)
+        __logger.info("%d symbols retrieved for exchange %s", len(symbols), exchange)
         exchange_stat = {}
-        exchange_stat['Code']= exchange['Code']
+        exchange_stat['Code']= exchange
         exchange_stat['Part']=1 #not plit by default
         exchange_stat['Start']=0
         exchange_stat['Size'] = len(symbols)
         exchange_stats.append(exchange_stat)
     except Exception as e:
-        __logger.error("Error for %s -> %s", exchange['Code'], str(e))
+        __logger.error("Error for %s -> %s", exchange, str(e))
 
 #Check if we have to split exchanges further
-exchanges_to_split = get_config("SPLIT_EXCHANGES")
+exchanges_to_split = get_config("SPLIT_EXCHANGES", configfile=configfile)
 exchanges_codes_to_split = exchanges_to_split.split(',')
 for exchange_code_to_split in exchanges_codes_to_split:
     #How many parts ?
-    parts = get_config("SPLIT_" + exchange_code_to_split.strip())
+    parts = get_config("SPLIT_" + exchange_code_to_split.strip(), configfile=configfile)
     __split_exchange(exchange_stats, exchange_code_to_split, int(parts))
 
-bs = __split_exchanges(10, exchange_stats)
+bs = __split_exchanges(int(get_config("SPLIT_BATCHES", configfile=configfile)), exchange_stats)
 with open("config/controller.json","w") as config_file:
     json.dump(bs, config_file)

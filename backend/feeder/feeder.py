@@ -1,3 +1,7 @@
+import sys
+import os
+from xmlrpc.client import boolean
+sys.path.append(os.getcwd())
 import argparse
 from dataclasses import field
 from decimal import Decimal
@@ -8,61 +12,38 @@ from eod import EodHistoricalData
 import logging
 import logging.config
 import logging.handlers
-import os
 import json
 import math
 import datetime
 import numpy as np
 import pyodbc
+from config import get_config, process_arguments
 
-__config = {}
+class FeederException(Exception): pass
+
 logging.config.fileConfig("config/logging.conf")
 __logger = logging.getLogger('feeder')
+
+#Stats is a complex data structure grouping all statistics of the feeding process
+# {"Exchanges", "Tickers"}
+# Exchanges: {"Processed, Errors"}
+# Exchanges{"Processed"} ->["Code-Part"]: Processed is a list of successfully processed exchange parts
+# Exchanges{"Errors"} -> ["Code-Part"]: Errors is a list of errorneous exchange (part) loads
+
+# Tickers: {"Processed, Errors"}
+# Tickers  {"Processed"} ->["Code"]: Processed is a list of successfully processed fully qualified tickers
+# Tickers{"Errors"} -> [{"code-part:[]"}]: Errors is a list of dict with exchangecode-part being the key and the list of {"Code" (fully qualified ticker code), "Error" (error strings)} as values
 __stats={}
 
-
-def __parse_line(line:str):
-    keyval = line.split('=')
-    return(keyval[0], keyval[1])
-
-def __read_configuration():
-    config = {}
-    __logger.info("Reading configuration file config/pm.conf...")
-    with open("config/pm.conf", "rt") as configfile:
-        for line in configfile:
-            if not line.strip().startswith('#'):
-                (key,value) = __parse_line(line)
-                __logger.debug("Found %s -> %s", key, value)
-                config[key.strip()] = value.strip()
-    return config
-
-
-
-def get_config(key:str)->str:
-    '''
-    Read the configuration file is needed and return the entry identified by key.
-
-    Returns an empty string if the key is not found.
-
-    Assumes the current directory is the parent on the config directory.
-    '''
-    global __config
-    if __config: 
-        return __config[key]
-    else:
-        __config = __read_configuration()
-        if not __config: return ""
-        return __config[key]
-
-
+__config_file = "config/pm.conf"
 
 def get_oed_apikey() -> str:
-    return get_config('EOD_API_KEY')
+    return get_config('EOD_API_KEY', configfile=__config_file)
 
 def __updatedb_exchange(exchange):
     #Check if the directory exists and if not create it
     try:
-        db_loc = get_config('DB_LOCATION')
+        db_loc = get_config('DB_LOCATION', configfile=__config_file)
         tocreate = os.path.join(db_loc, exchange['Code'])
         if not os.path.exists(tocreate):
             # Create the directory
@@ -71,13 +52,18 @@ def __updatedb_exchange(exchange):
             # Create id file
             with open(tocreate+'/id', 'wt') as id:
                 id.write(str(exchange))
-        __stats['Exchanges']['Processed'].append(exchange['Code'])
+        __stats['Exchanges']['Processed'].append(exchange['Code']+'-'+ str(exchange['Part']))
     except Exception as e:
-        __logger.error("Could not process exchange %s -> %s", exchange['Code'], str(e))
-        __stats['Exchanges']['Errors'].append(exchange['Code'])
+        __logger.error("Could not process exchange %s part %d -> %s", exchange['Code'], exchange['Part'],str(e))
+        __stats['Exchanges']['Errors'].append(exchange['Code']+'-'+str(exchange['Part']))
 
 
-def __updatedb_tickers(exchange):
+def __get_tickers(symbols:list, exchange):
+    if exchange['Size'] == -1: return symbols
+    #Filter for the subexchnage
+    return symbols[exchange['Start']:exchange['Start']+exchange['Size']]
+
+def __updatedb_tickers(exchange,client):
     '''
     Update the database tree with the tickers for the exchange passed in argument
     
@@ -87,7 +73,8 @@ def __updatedb_tickers(exchange):
     __logger.info("Getting the ticker list for exchange %s", exchange['Code'])
     try:
         symbols = client.get_exchange_symbols(exchange=exchange['Code'])
-        __logger.info("%d symbols retrieved for exchange %s", len(symbols), exchange['Code'])
+        symbols = __get_tickers(symbols, exchange)
+        __logger.info("%d symbols retrieved for exchange %s part %d", len(symbols), exchange['Code'],exchange['Part'] )
         progress = 0
         steps = math.ceil(len(symbols)/10)
         for symbol in symbols:
@@ -97,9 +84,9 @@ def __updatedb_tickers(exchange):
                 __logger.info("%d%% processed...", progress / steps * 10)
         return symbols
     except Exception as e:
-        __logger.error("!!! Could not process exchange %s !!! -> %s", exchange['Code'], str(e))
-        __stats['Exchanges']['Errors'].append(exchange['Code'])
-        if exchange['Code'] in __stats['Exchanges']['Processed']: __stats['Exchanges']['Processed'].remove(exchange['Code']) 
+        __logger.error("!!! Could not process exchange %s part %d !!! -> %s", exchange['Code'], exchange['Part'], str(e))
+        __stats['Exchanges']['Errors'].append(exchange['Code']+'-'+str(exchange['Part']))
+        if exchange['Code']+'-'+str(exchange['Part']) in __stats['Exchanges']['Processed']: __stats['Exchanges']['Processed'].remove(exchange['Code']+'-'+str(exchange['Part'])) 
         return []
 
 def __update_stat_ticker_error(exchange:dict, symbol:dict, e:Exception):
@@ -107,15 +94,15 @@ def __update_stat_ticker_error(exchange:dict, symbol:dict, e:Exception):
     Update the __stats global dictionary to register the ticker in error with the message in exception e
     '''
     global __stats
-    if exchange['Code'] not in __stats['Tickers']['Errors'].keys():
-        __stats['Tickers']['Errors'][exchange['Code']] = []
-    __stats['Tickers']['Errors'][exchange['Code']].append({'Code':symbol['Code'], 'Error':str(e)})
+    if exchange['Code']+'-'+str(exchange['Part']) not in __stats['Tickers']['Errors'].keys():
+        __stats['Tickers']['Errors'][exchange['Code']+'-'+str(exchange['Part'])] = []
+    __stats['Tickers']['Errors'][exchange['Code']+'-'+str(exchange['Part'])].append({'Code':symbol['Code']+'.'+exchange['Code'], 'Error':str(e)})
 
 def __updatedb_ticker(exchange, symbol):
     try:
         __logger.debug("Updating database for exchange %s and ticker %s", exchange['Code'], symbol['Code'])
         #__logger.debug(str(symbol))
-        db_loc = get_config('DB_LOCATION')
+        db_loc = get_config('DB_LOCATION', configfile=__config_file)
         exchange_loc = os.path.join(db_loc, exchange['Code'])
         ticker_loc = os.path.join(exchange_loc, symbol['Code'])
         if not os.path.exists(ticker_loc):
@@ -126,7 +113,7 @@ def __updatedb_ticker(exchange, symbol):
             with open(ticker_loc+'/id', 'wb') as id:
                 towrite = json.dumps(symbol, ensure_ascii=False)
                 id.write(towrite.encode('utf-8'))
-        __stats['Tickers']['Processed'].append(symbol['Code'])
+        __stats['Tickers']['Processed'].append(symbol['Code']+'.'+exchange['Code'])
     except Exception as e:
         __logger.error("Could not process ticker %s on exchange %s. Ignoring...", symbol['Code'], exchange['Code'])
         __update_stat_ticker_error(exchange, symbol, e)
@@ -141,9 +128,9 @@ def __reset_stats():
 def __display_stats_exchanges(stats, logger):
     exchange_success = len(stats['Exchanges']['Processed'])
     exchange_error = len(stats['Exchanges']['Errors'])
-    logger.info("Number of exchanges successfully processed {success:d}/{total:d}".format(success = exchange_success, total = exchange_success + exchange_error))
+    logger.info("Number of exchanges (or parts) successfully processed {success:d}/{total:d}".format(success = exchange_success, total = exchange_success + exchange_error))
     if(exchange_error != 0):
-        logger.info("*** {failed:d} exchanges could not be processed:".format(failed = exchange_error))
+        logger.info("*** {failed:d} exchanges (or parts) could not be processed:".format(failed = exchange_error))
         exchanges = ""
         for exchange_error in stats['Exchanges']['Errors']:
             exchanges = exchanges+exchange_error + ' - '
@@ -202,7 +189,7 @@ def __feed_data_file(exchange:str, ticker:str, data_point:dict, connection:pyodb
     Updates the relational database PMFeeder with the meta data of the load (start and end dates...) if the connetion is not None
     '''
     #Check if file exists
-    db_loc = get_config('DB_LOCATION')
+    db_loc = get_config('DB_LOCATION', configfile=__config_file)
     exchange_loc = os.path.join(db_loc, exchange)
     ticker_loc = os.path.join(exchange_loc, ticker)
     meta_loc = os.path.join(ticker_loc,data_point['name']+".meta")
@@ -249,7 +236,7 @@ def __pack_datapoint(dp:dict,fieldname:str,prices:list):
 
 def __feed_db_eodprices(client,exchange:dict, ticker:dict, connection, load_id:Decimal):
     '''
-    Populate the database with end of day market data for the ticker belonging to this exchange 
+    Populate the database with end of day market data for the ticker belonging to this exchange (or subexchange)
     '''
     try:
         __logger.info("Fetching EOD prices for ticker %s from exchange %s", ticker['Code'], exchange['Code'])
@@ -279,7 +266,7 @@ def display_stats(stats):
     logger = logging.getLogger("summary")
     logger.setLevel(logging.INFO)
     d = datetime.datetime.now()
-    handler = logging.FileHandler(get_config("LOG_FILE_LOC")+"/feeder_run_{yyyy}-{mm:02d}-{dd:02d}_{hh:02d}_{mmm:02d}_{ss:02d}.log".format(yyyy=d.year, mm=d.month, dd=d.day, hh=d.hour, mmm=d.minute, ss=d.second))
+    handler = logging.FileHandler(get_config("LOG_FILE_LOC", configfile=__config_file)+"/feeder_run_{yyyy}-{mm:02d}-{dd:02d}_{hh:02d}_{mmm:02d}_{ss:02d}.log".format(yyyy=d.year, mm=d.month, dd=d.day, hh=d.hour, mmm=d.minute, ss=d.second))
     formatter = logging.Formatter('%(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -296,7 +283,7 @@ def __init_load(exchange:dict, sqlconnection:pyodbc.Connection)->Decimal:
         __logger.debug("Inserting load in database...")
         with sqlconnection:
             cursor = sqlconnection.cursor()
-            cursor.execute("SET NOCOUNT ON;INSERT INTO ExchangeLoad (code, load_time) VALUES (?,?);SELECT @@IDENTITY as exchange_load_id;",exchange['Code'],datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+            cursor.execute("SET NOCOUNT ON;INSERT INTO ExchangeLoad (code, part, load_time) VALUES (?,?,?);SELECT @@IDENTITY as exchange_load_id;",exchange['Code'], exchange['Part'], datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
             #get the load_id back
             rows = cursor.fetchall()
             exch_id= rows[0].exchange_load_id
@@ -306,57 +293,75 @@ def __init_load(exchange:dict, sqlconnection:pyodbc.Connection)->Decimal:
         __logger.error("Failed: %s", str(e))
         return -1        
 
+
+def __populate_exchanges(client, sqlconnection, exchanges:dict):
+    '''
+    Feed the database(s) with the exchanges market data
+    '''
+    for exchange in exchanges:
+        if exchange['Size'] == -1:
+            __logger.info("Populating database for full exchange %s", exchange['Code'])
+        else:
+            __logger.info("Populating database for exchange %s part %d (%d tickers)", exchange['Code'], exchange['Part'], exchange['Size'])
+        __updatedb_exchange(exchange)
+        tickers = __updatedb_tickers(exchange,client)
+        if (len(tickers) >0) and (sqlconnection != None):
+            load_id = __init_load(exchange, sqlconnection)
+        for ticker in tickers:
+            __feed_db_eodprices(client,exchange, ticker, sqlconnection, load_id)
+
+
 def build_initial_db(client, exchange_list:list, sqlconnection):
+    '''
+    Populate the file database and SQL server meta database
+    Arguments are:
+    . client: API client of the market data API
+    . exchange_list: List of exchanges to populate
+    Each element of the list is tuple (code, size, part, start) where:
+        . code is the exchange code
+        . size is the size of the exchange (or -1 if not available)
+        . part the part (1-based) of the exchange universe to populate
+        . start the starting index (0-based) of the first ticker of the part from the universe to populate
+
+    Example for a full exchange universe to populate:
+       ('IL',-1 ,1 ,0)
+    Example for part 5 of an exchange to populate:
+        ('US', 5247, 5,20988) which basically means populate the US exchange universe from ticker indexed at 20988 to ticker indexed at 20988+5247
+
+    Note if exchange_list is an empty list, the function will populate the entire list of exchanges.
+
+    . sql_connection: SQL connection of the meta database
+    '''
     __reset_stats()
     exchanges=[]
     if len(exchange_list)==0:
         # Get the list of exchanges
         __logger.info("Getting the list of exchanges...")
         exchanges = client.get_exchanges()
+        for e in exchanges:
+            e['Size']=-1 #just means the full exchange
+            e['Part']= 1
+            e['Start']= 0
         __logger.info("%d exchanges will be loaded in the database", len(exchanges))
     else:
         # Fetch each exchange details
         exchs = client.get_exchanges()
-        for exchange_code in exchange_list:
+        found=False
+        for (exchange_code, exchange_size, exchange_part, exchange_start) in exchange_list:
             #Find the exchange code in the exchange list exchs
             es = [ex for ex in exchs if ex['Code']==exchange_code]
             if(len(es) != 0):
+                found = True
+                es[0]['Size']=exchange_size
+                es[0]['Part']= exchange_part
+                es[0]['Start']= exchange_start
                 exchanges.extend(es)
+            if(len(es)!=1):
+                raise FeederException("It seems the exchange {exchange} is specified more than once in the list of exchanges to process. Please check the configuration".format(exchange=es[0]['Code']))
+            if(found == False):
+                __logger.warn("Could not find exchange %s", exchange_code)
 
-    for exchange in exchanges:
-        __updatedb_exchange(exchange)
-        tickers = __updatedb_tickers(exchange)
-        if (len(tickers) >0) and (sqlconnection != None):
-            load_id = __init_load(exchange, sqlconnection)
-        for ticker in tickers:
-            __feed_db_eodprices(client,exchange, ticker, sqlconnection, load_id)
-
-def __process_arguments():
-    '''
-    Process the command line arguments
-
-    Returns a list of exchanges to be processed.
-    En empty list means all exchanges
-    '''
-    parser = argparse.ArgumentParser(description="Feed the database of the portfolio manager")
-    parser.add_argument('--debug', '--log', '-d', nargs='?', choices=['DEBUG', 'INFO','WARN', 'ERROR','CRITICAL'], help="Enable debugging with the specified level")
-    parser.add_argument('--exchanges', '-e', nargs='+', action="extend",type=str, help="Process the list of exchanges specified (by their codes)")
-    parser.add_argument('--version', action='version', version='%(prog)s 0.1')
-    args=parser.parse_args()
-    debug_level = None
-    if hasattr(args,"d"): debug_level = args.d 
-    if hasattr(args,"debug"): debug_level = args.debug 
-    if hasattr(args,"log"): debug_level = args.log 
-    if debug_level != None:
-        __logger.info("Debug level set to %s", debug_level.upper())
-        __logger.setLevel(debug_level.upper())
-
-    exchange_list=[]
-    if hasattr(args,"e"): exchange_list = args.e 
-    if hasattr(args,"exchanges"): exchange_list = args.exchanges 
-    if len(exchange_list) != 0:
-        __logger.info("Processing exchanges:%s",exchange_list)
-    return exchange_list
+    __populate_exchanges(client, sqlconnection, exchanges)
 
 def __connect_sql_db()->pyodbc.Connection: 
     '''
@@ -366,21 +371,66 @@ def __connect_sql_db()->pyodbc.Connection:
     # server = 'localhost\sqlexpress' # for a named instance
     # server = 'myserver,port' # to specify an alternate port
     try:
-        server = get_config("SQL_SERVER")
-        database = get_config("SQL_DB")
-        username = get_config("SQL_USER")
-        password = get_config("SQL_PASSWORD") 
+        server = get_config("SQL_SERVER", configfile=__config_file)
+        database = get_config("SQL_DB", configfile=__config_file)
+        username = get_config("SQL_USER", configfile=__config_file)
+        password = get_config("SQL_PASSWORD", configfile=__config_file) 
         connectionurl='DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password
-        __logger.info("Connecting to database server with:%s", connectionurl)
+        __logger.debug("Connecting to database server with:%s", connectionurl)
         cnxn = pyodbc.connect(connectionurl)
         return cnxn
     except Exception as e:
         __logger.error("Cannot connect to SQL database:%s", str(e))
         return None
 
-exchange_list = __process_arguments()
-EOD_API_KEY = get_oed_apikey()
-client = EodHistoricalData(EOD_API_KEY)
-sqlconnection = __connect_sql_db()
-build_initial_db(client, exchange_list, sqlconnection)
-display_stats(__stats)
+
+def __get_exchange_list(config:dict, batch_name:str)->list:
+    exchange_list = []
+    exchanges_in_batch = [batches['Exchanges'] for batches in config if batches['Batch_Name'] == batch_name]
+    if len(exchanges_in_batch) != 1:
+        raise FeederException("Could not find the batch {batch_name} in the configuration".format(batch_name=batch_name))
+    for exchange in exchanges_in_batch[0]:
+        exch = (exchange['Code'], exchange['Size'], exchange['Part'], exchange['Start'])
+        exchange_list.append(exch)
+    return exchange_list
+
+def __build_exchange_list(exchange_list:list):
+    '''
+    Take a list of exchanges and augment it with meta data
+    '''
+    to_return=[]
+    for exchange in exchange_list:
+        to_return.append((exchange, -1, 1, 0))
+    return to_return
+
+def run_feeder_batch(batch_name:str):
+    '''
+    Run the feeder for the list of exchanges in batch identified by batch_name
+    '''
+    __logger.info("Running batch feeder process %s", batch_name)
+    api_key = get_oed_apikey()
+    client = EodHistoricalData(api_key)
+    sqlconnection = __connect_sql_db()
+    with open("config/controller.json", "r") as config_file:
+        config = json.load(config_file)
+    exchange_list = __get_exchange_list(config, batch_name)
+    build_initial_db(client, exchange_list, sqlconnection)
+
+def run_feeder(exchange_list):
+    '''
+    Run the feeder for the list of exchanges passed in argument
+    Each element of the list is just a list of exchange codes
+    '''
+    api_key = get_oed_apikey()
+    client = EodHistoricalData(api_key)
+    sqlconnection = __connect_sql_db()
+    build_initial_db(client, exchange_list, sqlconnection)
+
+if __name__ == '__main__':
+    try:
+        exchange_list,configfile = process_arguments()
+        exchange_list = __build_exchange_list(exchange_list)
+        run_feeder(exchange_list)
+        display_stats(__stats)
+    except Exception as e:
+        print("Fatal error:%s", str(e))

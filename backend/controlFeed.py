@@ -20,7 +20,6 @@ def run_batch(config:dict)->Process:
 
 def run_control(config:list):
     #run each batch on the current machine
-    #TODO
     processes=[]
     for configuration in config:
         __logger.info("Spawning batch process...")

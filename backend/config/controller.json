@@ -1,512 +1,602 @@
 [
     {
+        "Batch_Name": "Batch_01",
+        "Remaining_size": 391,
         "Exchanges": [
             {
                 "Code": "F",
                 "Part": 1,
-                "Size": 8314
+                "Start": 0,
+                "Size": 8311
             },
             {
-                "Code": "US5",
+                "Code": "US",
                 "Part": 5,
-                "Size": 5243
+                "Start": 20988,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND5",
+                "Code": "EUFUND",
                 "Part": 5,
-                "Size": 5049
+                "Start": 20192,
+                "Size": 5048
             },
             {
                 "Code": "MU",
                 "Part": 1,
+                "Start": 0,
                 "Size": 2476
             },
             {
                 "Code": "PA",
                 "Part": 1,
+                "Start": 0,
                 "Size": 1137
             },
             {
                 "Code": "TWO",
                 "Part": 1,
+                "Start": 0,
                 "Size": 740
             },
             {
                 "Code": "KAR",
                 "Part": 1,
+                "Start": 0,
                 "Size": 389
             },
             {
                 "Code": "LU",
                 "Part": 1,
+                "Start": 0,
                 "Size": 162
             },
             {
                 "Code": "VI",
                 "Part": 1,
+                "Start": 0,
                 "Size": 82
             }
-        ],
-        "Batch_Name": "Batch_01",
-        "Remaining_size": 392
+        ]
     },
     {
+        "Batch_Name": "Batch_02",
+        "Remaining_size": 1430,
         "Exchanges": [
             {
                 "Code": "BOND",
                 "Part": 1,
-                "Size": 7549
+                "Start": 0,
+                "Size": 7542
             },
             {
-                "Code": "US6",
+                "Code": "US",
                 "Part": 6,
-                "Size": 5243
+                "Start": 26235,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND6",
+                "Code": "EUFUND",
                 "Part": 6,
-                "Size": 5049
+                "Start": 25240,
+                "Size": 5048
             },
             {
                 "Code": "AU",
                 "Part": 1,
-                "Size": 2312
+                "Start": 0,
+                "Size": 2311
             },
             {
                 "Code": "TW",
                 "Part": 1,
-                "Size": 1119
+                "Start": 0,
+                "Size": 1120
             },
             {
                 "Code": "WAR",
                 "Part": 1,
-                "Size": 732
+                "Start": 0,
+                "Size": 731
             },
             {
                 "Code": "CO",
                 "Part": 1,
+                "Start": 0,
                 "Size": 351
             },
             {
                 "Code": "HA",
                 "Part": 1,
+                "Start": 0,
                 "Size": 149
             },
             {
                 "Code": "LIM",
                 "Part": 1,
-                "Size": 55
+                "Start": 0,
+                "Size": 54
             }
-        ],
-        "Batch_Name": "Batch_02",
-        "Remaining_size": 1425
+        ]
     },
     {
+        "Batch_Name": "Batch_03",
+        "Remaining_size": 2997,
         "Exchanges": [
             {
                 "Code": "LSE",
                 "Part": 1,
-                "Size": 6185
+                "Start": 0,
+                "Size": 6181
             },
             {
-                "Code": "US7",
+                "Code": "US",
                 "Part": 7,
-                "Size": 5243
+                "Start": 31482,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND7",
+                "Code": "EUFUND",
                 "Part": 7,
-                "Size": 5049
+                "Start": 30288,
+                "Size": 5048
             },
             {
                 "Code": "SHG",
                 "Part": 1,
-                "Size": 2256
+                "Start": 0,
+                "Size": 2258
             },
             {
                 "Code": "TA",
                 "Part": 1,
+                "Start": 0,
                 "Size": 1049
             },
             {
                 "Code": "SG",
                 "Part": 1,
+                "Start": 0,
                 "Size": 663
             },
             {
                 "Code": "OL",
                 "Part": 1,
-                "Size": 346
+                "Start": 0,
+                "Size": 345
             },
             {
                 "Code": "NEO",
                 "Part": 1,
+                "Start": 0,
                 "Size": 148
             },
             {
                 "Code": "IL",
                 "Part": 1,
+                "Start": 0,
                 "Size": 47
             }
-        ],
-        "Batch_Name": "Batch_03",
-        "Remaining_size": 2998
+        ]
     },
     {
+        "Batch_Name": "Batch_04",
+        "Remaining_size": 3392,
         "Exchanges": [
             {
                 "Code": "BSE",
                 "Part": 1,
-                "Size": 5967
+                "Start": 0,
+                "Size": 5962
             },
             {
-                "Code": "US8",
+                "Code": "US",
                 "Part": 8,
-                "Size": 5243
+                "Start": 36729,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND8",
+                "Code": "EUFUND",
                 "Part": 8,
-                "Size": 5049
+                "Start": 35336,
+                "Size": 5048
             },
             {
                 "Code": "KQ",
                 "Part": 1,
+                "Start": 0,
                 "Size": 2255
             },
             {
                 "Code": "FOREX",
                 "Part": 1,
+                "Start": 0,
                 "Size": 976
             },
             {
                 "Code": "HM",
                 "Part": 1,
+                "Start": 0,
                 "Size": 606
             },
             {
                 "Code": "AS",
                 "Part": 1,
+                "Start": 0,
                 "Size": 305
             },
             {
                 "Code": "AT",
                 "Part": 1,
+                "Start": 0,
                 "Size": 148
             },
             {
                 "Code": "LS",
                 "Part": 1,
+                "Start": 0,
                 "Size": 44
             }
-        ],
-        "Batch_Name": "Batch_04",
-        "Remaining_size": 3391
+        ]
     },
     {
+        "Batch_Name": "Batch_05",
+        "Remaining_size": 3719,
         "Exchanges": [
             {
                 "Code": "STU",
                 "Part": 1,
-                "Size": 5725
+                "Start": 0,
+                "Size": 5722
             },
             {
-                "Code": "US9",
+                "Code": "US",
                 "Part": 9,
-                "Size": 5243
+                "Start": 41976,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND9",
+                "Code": "EUFUND",
                 "Part": 9,
-                "Size": 5049
+                "Start": 40384,
+                "Size": 5048
             },
             {
                 "Code": "TO",
                 "Part": 1,
+                "Start": 0,
                 "Size": 2245
             },
             {
                 "Code": "KLSE",
                 "Part": 1,
+                "Start": 0,
                 "Size": 941
             },
             {
                 "Code": "MX",
                 "Part": 1,
+                "Start": 0,
                 "Size": 606
             },
             {
                 "Code": "PSE",
                 "Part": 1,
+                "Start": 0,
                 "Size": 283
             },
             {
                 "Code": "SN",
                 "Part": 1,
+                "Start": 0,
                 "Size": 138
             },
             {
                 "Code": "IR",
                 "Part": 1,
+                "Start": 0,
                 "Size": 34
             }
-        ],
-        "Batch_Name": "Batch_05",
-        "Remaining_size": 3720
+        ]
     },
     {
+        "Batch_Name": "Batch_06",
+        "Remaining_size": 5917,
         "Exchanges": [
             {
-                "Code": "US10",
+                "Code": "US",
                 "Part": 10,
+                "Start": 47223,
                 "Size": 5250
             },
             {
-                "Code": "EUFUND10",
+                "Code": "EUFUND",
                 "Part": 10,
+                "Start": 45432,
                 "Size": 5054
             },
             {
                 "Code": "BE",
                 "Part": 1,
+                "Start": 0,
                 "Size": 3809
             },
             {
                 "Code": "NSE",
                 "Part": 1,
+                "Start": 0,
                 "Size": 2020
             },
             {
                 "Code": "INDX",
                 "Part": 1,
+                "Start": 0,
                 "Size": 890
             },
             {
                 "Code": "SW",
                 "Part": 1,
+                "Start": 0,
                 "Size": 599
             },
             {
                 "Code": "MCX",
                 "Part": 1,
+                "Start": 0,
                 "Size": 280
             },
             {
                 "Code": "GBOND",
                 "Part": 1,
+                "Start": 0,
                 "Size": 136
             },
             {
                 "Code": "ZSE",
                 "Part": 1,
+                "Start": 0,
                 "Size": 28
             }
-        ],
-        "Batch_Name": "Batch_06",
-        "Remaining_size": 5918
+        ]
     },
     {
+        "Batch_Name": "Batch_07",
+        "Remaining_size": 6501,
         "Exchanges": [
             {
-                "Code": "US1",
+                "Code": "US",
                 "Part": 1,
-                "Size": 5243
+                "Start": 0,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND1",
+                "Code": "EUFUND",
                 "Part": 1,
-                "Size": 5049
+                "Start": 0,
+                "Size": 5048
             },
             {
                 "Code": "HK",
                 "Part": 1,
+                "Start": 0,
                 "Size": 3438
             },
             {
                 "Code": "MI",
                 "Part": 1,
+                "Start": 0,
                 "Size": 1885
             },
             {
                 "Code": "ST",
                 "Part": 1,
+                "Start": 0,
                 "Size": 864
             },
             {
                 "Code": "COMM",
                 "Part": 1,
-                "Size": 573
+                "Start": 0,
+                "Size": 572
             },
             {
                 "Code": "CM",
                 "Part": 1,
+                "Start": 0,
                 "Size": 272
             },
             {
                 "Code": "MONEY",
                 "Part": 1,
+                "Start": 0,
                 "Size": 131
             },
             {
                 "Code": "PR",
                 "Part": 1,
+                "Start": 0,
                 "Size": 25
             }
-        ],
-        "Batch_Name": "Batch_07",
-        "Remaining_size": 6504
+        ]
     },
     {
+        "Batch_Name": "Batch_08",
+        "Remaining_size": 7408,
         "Exchanges": [
             {
-                "Code": "US2",
+                "Code": "US",
                 "Part": 2,
-                "Size": 5243
+                "Start": 5247,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND2",
+                "Code": "EUFUND",
                 "Part": 2,
-                "Size": 5049
+                "Start": 5048,
+                "Size": 5048
             },
             {
                 "Code": "CC",
                 "Part": 1,
-                "Size": 2979
+                "Start": 0,
+                "Size": 2978
             },
             {
                 "Code": "DU",
                 "Part": 1,
+                "Start": 0,
                 "Size": 1529
             },
             {
                 "Code": "BK",
                 "Part": 1,
+                "Start": 0,
                 "Size": 841
             },
             {
                 "Code": "JSE",
                 "Part": 1,
+                "Start": 0,
                 "Size": 533
             },
             {
                 "Code": "SR",
                 "Part": 1,
+                "Start": 0,
                 "Size": 254
             },
             {
                 "Code": "BR",
                 "Part": 1,
-                "Size": 122
+                "Start": 0,
+                "Size": 121
             },
             {
                 "Code": "BUD",
                 "Part": 1,
+                "Start": 0,
                 "Size": 24
             }
-        ],
-        "Batch_Name": "Batch_08",
-        "Remaining_size": 7410
+        ]
     },
     {
+        "Batch_Name": "Batch_09",
+        "Remaining_size": 7955,
         "Exchanges": [
             {
-                "Code": "US3",
+                "Code": "US",
                 "Part": 3,
-                "Size": 5243
+                "Start": 10494,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND3",
+                "Code": "EUFUND",
                 "Part": 3,
-                "Size": 5049
+                "Start": 10096,
+                "Size": 5048
             },
             {
-                "Code": "XETRA",
+                "Code": "SHE",
                 "Part": 1,
+                "Start": 0,
                 "Size": 2746
             },
             {
                 "Code": "KO",
                 "Part": 1,
+                "Start": 0,
                 "Size": 1395
             },
             {
                 "Code": "JK",
                 "Part": 1,
+                "Start": 0,
                 "Size": 785
             },
             {
                 "Code": "IS",
                 "Part": 1,
+                "Start": 0,
                 "Size": 483
             },
             {
                 "Code": "MC",
                 "Part": 1,
-                "Size": 194
+                "Start": 0,
+                "Size": 193
             },
             {
                 "Code": "RO",
                 "Part": 1,
+                "Start": 0,
                 "Size": 120
             },
             {
                 "Code": "IC",
                 "Part": 1,
+                "Start": 0,
                 "Size": 11
             }
-        ],
-        "Batch_Name": "Batch_09",
-        "Remaining_size": 7958
+        ]
     },
     {
+        "Batch_Name": "Batch_10",
+        "Remaining_size": 8251,
         "Exchanges": [
             {
-                "Code": "US4",
+                "Code": "US",
                 "Part": 4,
-                "Size": 5243
+                "Start": 15741,
+                "Size": 5247
             },
             {
-                "Code": "EUFUND4",
+                "Code": "EUFUND",
                 "Part": 4,
-                "Size": 5049
+                "Start": 15144,
+                "Size": 5048
             },
             {
-                "Code": "SHE",
+                "Code": "XETRA",
                 "Part": 1,
-                "Size": 2741
+                "Start": 0,
+                "Size": 2738
             },
             {
                 "Code": "SA",
                 "Part": 1,
+                "Start": 0,
                 "Size": 1235
             },
             {
                 "Code": "EUBOND",
                 "Part": 1,
+                "Start": 0,
                 "Size": 778
             },
             {
                 "Code": "VN",
                 "Part": 1,
-                "Size": 409
+                "Start": 0,
+                "Size": 408
             },
             {
                 "Code": "HE",
                 "Part": 1,
+                "Start": 0,
                 "Size": 170
             },
             {
                 "Code": "BA",
                 "Part": 1,
+                "Start": 0,
                 "Size": 105
             },
             {
                 "Code": "VX",
                 "Part": 1,
+                "Start": 0,
                 "Size": 3
             }
-        ],
-        "Batch_Name": "Batch_10",
-        "Remaining_size": 8251
+        ]
     }
 ]

@@ -1,5 +1,5 @@
 import json
-from feeder.config import get_config
+from config import get_config
 import logging
 import logging.config
 from eod import EodHistoricalData
@@ -41,9 +41,9 @@ def __fillbucket(bucket_number:int, exchanges_remaining:list, buckets, buckets_s
     #get the current list of exchanges of the bucket
     if buckets[bucket_number] == None: 
         buckets[bucket_number]={}
-        buckets[bucket_number]['Exchanges'] = []
         buckets[bucket_number]['Batch_Name'] = 'Batch_{n:02d}'.format(n=bucket_number+1)
         buckets[bucket_number]['Remaining_size'] = buckets_size
+        buckets[bucket_number]['Exchanges'] = []
     exchanges_in_bucket = buckets[bucket_number]
         
     #get the remaining size of the bucket
@@ -112,8 +112,10 @@ def __split_one_exchange(ex, parts):
     toreturn = []
     for i in range(parts):
         split_ex = {}
-        split_ex['Code']=ex["Code"]+str(i+1)
+        split_ex['Code']=ex["Code"]
         split_ex['Part']=i+1
+        #Starting point in the exchange universe (index of the first tiker of the bacth)
+        split_ex['Start'] = i*new_size
         if i != parts - 1:
             split_ex['Size']= new_size
         else:
@@ -150,6 +152,7 @@ for exchange in exchanges:
         exchange_stat = {}
         exchange_stat['Code']= exchange['Code']
         exchange_stat['Part']=1 #not plit by default
+        exchange_stat['Start']=0
         exchange_stat['Size'] = len(symbols)
         exchange_stats.append(exchange_stat)
     except Exception as e:

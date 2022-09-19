@@ -434,4 +434,4 @@ if __name__ == '__main__':
         display_stats(__stats)
     except Exception as e:
         print("Fatal error:", str(e))
-        __logger.fatal("Fata error:", e)
+        __logger.fatal("Fatal error:", str(e), stack_info=True)

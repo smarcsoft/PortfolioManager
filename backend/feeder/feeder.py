@@ -433,4 +433,5 @@ if __name__ == '__main__':
         run_feeder(exchange_list)
         display_stats(__stats)
     except Exception as e:
-        print("Fatal error:%s", str(e))
+        print("Fatal error:", str(e))
+        __logger.fatal("Fata error:", e)

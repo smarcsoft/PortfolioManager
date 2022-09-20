@@ -45,6 +45,7 @@ def __updatedb_exchange(exchange):
     try:
         db_loc = get_config('DB_LOCATION', configfile=__config_file)
         tocreate = os.path.join(db_loc, exchange['Code'])
+        os.makedirs( tocreate, exist_ok=True )
         if not os.path.exists(tocreate):
             # Create the directory
             __logger.info("Creating exchange %s in the database", exchange['Code'])
@@ -173,7 +174,7 @@ def __update_meta_date_in_sqldb(connection:pyodbc.Connection, load_id:Decimal, s
     try:
         with connection:
                 cursor = connection.cursor()
-                load_time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                load_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 __logger.debug("Inserting ticker load meta data for %s.%s...", ticker, dp_name)
                 cursor.execute("SET NOCOUNT ON;INSERT INTO TickerLoad (exchange_load_id, ticker_code, data_point_name, start_date, end_date, load_time) VALUES (?,?,?,?,?,?)",
                 load_id, ticker, dp_name, start_date, end_date, load_time)
@@ -283,7 +284,7 @@ def __init_load(exchange:dict, sqlconnection:pyodbc.Connection)->Decimal:
         __logger.debug("Inserting load in database...")
         with sqlconnection:
             cursor = sqlconnection.cursor()
-            cursor.execute("SET NOCOUNT ON;INSERT INTO ExchangeLoad (code, part, load_time) VALUES (?,?,?);SELECT @@IDENTITY as exchange_load_id;",exchange['Code'], exchange['Part'], datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+            cursor.execute("SET NOCOUNT ON;INSERT INTO ExchangeLoad (code, part, load_time) VALUES (?,?,?);SELECT @@IDENTITY as exchange_load_id;",exchange['Code'], exchange['Part'], datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             #get the load_id back
             rows = cursor.fetchall()
             exch_id= rows[0].exchange_load_id
@@ -433,4 +434,5 @@ if __name__ == '__main__':
         run_feeder(exchange_list)
         display_stats(__stats)
     except Exception as e:
-        print("Fatal error:%s", str(e))
+        print("Fatal error:", str(e))
+        __logger.exception("Fatal error:%s", str(e))

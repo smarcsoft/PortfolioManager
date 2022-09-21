@@ -130,6 +130,7 @@ dmypy.json
 
 # vscode
 .vscode
+.vs
 
 # database
 /backend/db

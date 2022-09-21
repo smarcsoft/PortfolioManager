@@ -1,3 +1,4 @@
+from genericpath import exists
 import sys
 import os
 from xmlrpc.client import boolean
@@ -23,6 +24,7 @@ class FeederException(Exception): pass
 
 logging.config.fileConfig("config/logging.conf")
 __logger = logging.getLogger('feeder')
+__date_format = '%Y-%m-%d'
 
 #Stats is a complex data structure grouping all statistics of the feeding process
 # {"Exchanges", "Tickers"}
@@ -41,6 +43,9 @@ def get_oed_apikey() -> str:
     return get_config('EOD_API_KEY', configfile=__config_file)
 
 def __updatedb_exchange(exchange):
+    '''
+    Makes sure the directory structures are there in the file database for the exchange passed in argument
+    '''
     #Check if the directory exists and if not create it
     try:
         db_loc = get_config('DB_LOCATION', configfile=__config_file)
@@ -49,7 +54,7 @@ def __updatedb_exchange(exchange):
         if not os.path.exists(tocreate):
             # Create the directory
             __logger.info("Creating exchange %s in the database", exchange['Code'])
-            os.mkdir(tocreate)
+            os.makedirs(tocreate)
             # Create id file
             with open(tocreate+'/id', 'wt') as id:
                 id.write(str(exchange))
@@ -157,55 +162,125 @@ def __display_stats_tickers(stats, logger):
             logger.info("{0:15} -> {1}".format(ticker['Code'],ticker['Error']))
 
 
-def __create_meta_data_file(filename, data_point):
+def __update_meta_data_file(filename, data_point):
+    '''
+    Updates the meta data on the file database for the data point data_file
+
+    Returns a tuple:
+    The start date of the data point in the database before the update
+    The end date of the data point in the database before the update
+    The start date of the data point in the database after the update
+    The end date of the data point in the database after the update
+    or (None, None, start date after update, end date after update) if the file did not exists and was created by this function.
+
+    '''
+ 
+    new_datapoint_base_date = datetime.datetime.strptime(data_point['base_date'], __date_format).date()
+    new_datapoint_last_date = datetime.datetime.strptime(data_point['last_date'], __date_format).date()
     s={}
     s['base_date'] = data_point['base_date']
     s['last_date'] = data_point['last_date']
     s['name'] = data_point['name']
+
+    previous_datapoint_base_date = None
+    previous_datapoint_last_date = None
+    toupdate = s
+    # Read the previous meta data file if it does exist
+    if exists(filename):
+        with open(filename,'r') as metafile:
+            toupdate = json.loads(metafile.read())
+            previous_datapoint_base_date = datetime.datetime.strptime(toupdate['base_date'], __date_format).date()
+            previous_datapoint_last_date = datetime.datetime.strptime(toupdate['last_date'], __date_format).date()
+            if new_datapoint_base_date < previous_datapoint_base_date: toupdate['base_date'] = s['base_date']
+            if new_datapoint_last_date > previous_datapoint_last_date: toupdate['last_date'] = s['last_date']
     with open(filename,'w') as metafile:
-        json.dump(s, metafile)
+        json.dump(toupdate, metafile)
+    if previous_datapoint_base_date != None:
+        return (previous_datapoint_base_date, previous_datapoint_last_date, min(new_datapoint_base_date, previous_datapoint_base_date), max(new_datapoint_last_date, previous_datapoint_last_date))
+    else:
+        return (None, None, new_datapoint_base_date, new_datapoint_last_date)
+
+def __update_data_vector(before_datavec:np.ndarray, before_start_date, before_end_date, new_data_vec, new_start_date, new_end_date):
+    #Check how many days prepend at the beginning of the data vector
+    days_to_prepend = (before_start_date - new_start_date).days
+    #Check how many days to append at the end of the data vector
+    days_to_append = (new_end_date - before_end_date).days
+    #sum them up and create a new vector of the new size
+    newvec = np.zeros(before_datavec.size + max(0,days_to_prepend) + max(0,days_to_append))
+    #Put the old data
+    newvec[max(days_to_prepend,0):max(days_to_prepend,0) + before_datavec.size] = before_datavec
+    #Override it with the new data
+    if days_to_prepend > 0: 
+        newvec[0:new_data_vec.size] = new_data_vec
+    else:
+        newvec[-days_to_prepend:-days_to_prepend+new_data_vec.size] = new_data_vec
+    return newvec
+    
 
 
-def __create_data_file(filename, data_point:np.ndarray):
-    # Create the numpy array
-    np.savez_compressed(filename, data_point)
+def __update_data_file(filename, data_point:np.ndarray, before_start_date, before_end_date, new_start_date, new_end_date):
+    #Check if file exists
+    if os.path.exists(filename):
+        #Update the file (read->add->store)
+        before_datavec = np.load(file=filename)
+        new_data_vec = __update_data_vector(before_datavec, before_start_date, before_end_date, data_point, new_start_date, new_end_date)
+        #deletes the previous file to write the new one
+        os.remove(filename)
+        np.save(filename, new_data_vec)
+    else:
+        # Create the numpy array
+        np.save(filename, data_point)
 
-def __update_meta_date_in_sqldb(connection:pyodbc.Connection, load_id:Decimal, start_date:str, end_date:str, ticker:str, dp_name:str):
+def __update_meta_data_in_sqldb(connection:pyodbc.Connection, load_id:Decimal, start_date:datetime.date, end_date:datetime.date, ticker:str, full_ticker:str, dp_name:str):
     try:
         with connection:
                 cursor = connection.cursor()
-                load_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                load_time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 __logger.debug("Inserting ticker load meta data for %s.%s...", ticker, dp_name)
                 cursor.execute("SET NOCOUNT ON;INSERT INTO TickerLoad (exchange_load_id, ticker_code, data_point_name, start_date, end_date, load_time) VALUES (?,?,?,?,?,?)",
-                load_id, ticker, dp_name, start_date, end_date, load_time)
+                load_id, ticker, dp_name, start_date.strftime("%Y/%m/%d"), end_date.strftime("%Y/%m/%d"), load_time)
                 #get the load_id back
                 __logger.debug('...Successfully Inserted')
+
+                __logger.debug("Updating ticker historical coverage for %s...", full_ticker)
+                cursor.execute("EXEC dbo.update_ticker_coverage @full_ticker=?, @datapoint_name=?, @start_coverage=?, @end_coverage=?", full_ticker, dp_name, start_date.strftime("%Y/%m/%d"), end_date.strftime("%Y/%m/%d"))
+                __logger.debug('...Successfully Updated')
+
     except Exception as e:
         __logger.error("Failed: %s", str(e))
 
 
-def __feed_data_file(exchange:str, ticker:str, data_point:dict, connection:pyodbc.Connection, load_id:Decimal):
+def __feed_data_file(exchange:str, ticker:str, full_ticker:str, data_point:dict, connection:pyodbc.Connection, load_id:Decimal):
     '''
     Creates (and creates only, does not support update) the data point file in the DB
     Updates the relational database PMFeeder with the meta data of the load (start and end dates...) if the connetion is not None
+
+    Arguments:
+    . exchange: Exchange code
+    . ticker: ticker code (not fully qualified with the exchange)
+    . full_ticker: Fully qualified ticker 
+    . data_point: dict containing the fields of the data points (name, data, base_date, last_date)
+    . connection: SQL DB connection
+    . load_id: The database ID of the current data load.
+
     '''
     #Check if file exists
     db_loc = get_config('DB_LOCATION', configfile=__config_file)
     exchange_loc = os.path.join(db_loc, exchange)
     ticker_loc = os.path.join(exchange_loc, ticker)
     meta_loc = os.path.join(ticker_loc,data_point['name']+".meta")
-    data_loc = os.path.join(ticker_loc,data_point['name']+".npz")
-    __create_meta_data_file(meta_loc,data_point)
-    __create_data_file(data_loc,data_point['data'])
+    data_loc = os.path.join(ticker_loc,data_point['name']+".npy")
     start_date = data_point['base_date']
     end_date = data_point['last_date']
+    before_start_date, before_end_date, after_start_date, after_end_date = __update_meta_data_file(meta_loc,data_point)
+    __update_data_file(data_loc,data_point['data'], before_start_date, before_end_date, datetime.datetime.strptime(start_date, __date_format).date(), datetime.datetime.strptime(end_date, __date_format).date())
     if connection != None:
-        __update_meta_date_in_sqldb(connection, load_id, start_date, end_date, ticker, data_point['name'])
+        __update_meta_data_in_sqldb(connection, load_id, after_start_date, after_end_date, ticker, full_ticker, data_point['name'])
 
 def __get_eod_field(prices:list, base_date:str, field_name:str, type:np.dtype)->np.ndarray:
     '''
     returns a ndarray containing the data point values.
-    There is one element per date from the base date
+    There is one element per calendar date from the base date
     '''
     base_date = datetime.date.fromisoformat(base_date)
     to_date = datetime.date.fromisoformat(prices[len(prices)-1]['date'])
@@ -234,30 +309,53 @@ def __pack_datapoint(dp:dict,fieldname:str,prices:list):
     dp['data'] = __get_eod_field(prices, dp['base_date'], fieldname, np.float32)
     return dp
 
+def __get_last_date(connection, full_ticker:str)->datetime.date:
+    '''
+    Return the last coverage date or None
+    '''
+    last_date = None
+    try:
+        with connection:
+                cursor = connection.cursor()
+                cursor.execute("SELECT end_coverage=min(end_coverage) FROM DataCoverage where full_ticker=?", full_ticker)
+                rows = cursor.fetchall()
+                if len(rows)==1 and hasattr(rows[0], "end_coverage"):
+                    last_date = rows[0].end_coverage
+                return last_date
+    except Exception as e:
+        __logger.error("Failed to retrive the last coverage date for ticker %s: %s", full_ticker, str(e))
 
-def __feed_db_eodprices(client,exchange:dict, ticker:dict, connection, load_id:Decimal):
+def __feed_db_eodprices(client,exchange:dict, ticker:dict, connection, load_id:Decimal, update:bool):
     '''
     Populate the database with end of day market data for the ticker belonging to this exchange (or subexchange)
     '''
     try:
         __logger.info("Fetching EOD prices for ticker %s from exchange %s", ticker['Code'], exchange['Code'])
         full_ticker= ticker['Code']+'.'+exchange['Code']
-        prices = client.get_prices_eod(full_ticker)
+        if not update:
+            prices = client.get_prices_eod(full_ticker)
+        else:
+            from_date = __get_last_date(connection, full_ticker)
+            if from_date == None:
+                prices = client.get_prices_eod(full_ticker)
+            else:
+                from_date = from_date + datetime.timedelta(1)
+                prices = client.get_prices_eod(full_ticker, period = 'd', order='a', from_=from_date)
         # Getting back [{date,open,high,low,close,adjusted_close,volume}]
         dp = {}
         if len(prices) >0 :
             dp=__pack_datapoint(dp,'open', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
+            __feed_data_file(exchange['Code'], ticker['Code'], full_ticker, dp, connection, load_id)
             dp=__pack_datapoint(dp,'close', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
+            __feed_data_file(exchange['Code'], ticker['Code'], full_ticker, dp, connection, load_id)
             dp=__pack_datapoint(dp,'high', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
+            __feed_data_file(exchange['Code'], ticker['Code'], full_ticker, dp, connection, load_id)
             dp=__pack_datapoint(dp,'low', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
+            __feed_data_file(exchange['Code'], ticker['Code'], full_ticker, dp, connection, load_id)
             dp=__pack_datapoint(dp,'adjusted_close', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
+            __feed_data_file(exchange['Code'], ticker['Code'], full_ticker, dp, connection, load_id)
             dp=__pack_datapoint(dp,'volume', prices)
-            __feed_data_file(exchange['Code'], ticker['Code'], dp, connection, load_id)
+            __feed_data_file(exchange['Code'], ticker['Code'], full_ticker, dp, connection, load_id)
     except Exception as e:
         __logger.error("Could not get eod data for ticker %s.%s->%s", ticker['Code'], exchange['Code'], str(e))
         __update_stat_ticker_error(exchange, ticker, e)
@@ -284,7 +382,7 @@ def __init_load(exchange:dict, sqlconnection:pyodbc.Connection)->Decimal:
         __logger.debug("Inserting load in database...")
         with sqlconnection:
             cursor = sqlconnection.cursor()
-            cursor.execute("SET NOCOUNT ON;INSERT INTO ExchangeLoad (code, part, load_time) VALUES (?,?,?);SELECT @@IDENTITY as exchange_load_id;",exchange['Code'], exchange['Part'], datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            cursor.execute("SET NOCOUNT ON;INSERT INTO ExchangeLoad (code, part, load_time) VALUES (?,?,?);SELECT @@IDENTITY as exchange_load_id;",exchange['Code'], exchange['Part'], datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
             #get the load_id back
             rows = cursor.fetchall()
             exch_id= rows[0].exchange_load_id
@@ -295,7 +393,7 @@ def __init_load(exchange:dict, sqlconnection:pyodbc.Connection)->Decimal:
         return -1        
 
 
-def __populate_exchanges(client, sqlconnection, exchanges:dict):
+def __populate_exchanges(client, sqlconnection, exchanges:dict, update:bool):
     '''
     Feed the database(s) with the exchanges market data
     '''
@@ -309,10 +407,11 @@ def __populate_exchanges(client, sqlconnection, exchanges:dict):
         if (len(tickers) >0) and (sqlconnection != None):
             load_id = __init_load(exchange, sqlconnection)
         for ticker in tickers:
-            __feed_db_eodprices(client,exchange, ticker, sqlconnection, load_id)
+            __feed_db_eodprices(client,exchange, ticker, sqlconnection, load_id, update)
 
 
-def build_initial_db(client, exchange_list:list, sqlconnection):
+
+def update_db(client, exchange_list:list, sqlconnection, update):
     '''
     Populate the file database and SQL server meta database
     Arguments are:
@@ -332,6 +431,8 @@ def build_initial_db(client, exchange_list:list, sqlconnection):
     Note if exchange_list is an empty list, the function will populate the entire list of exchanges.
 
     . sql_connection: SQL connection of the meta database
+
+    . update: True if we just update the database up to today's data (we are not processing the full history)
     '''
     __reset_stats()
     exchanges=[]
@@ -357,12 +458,13 @@ def build_initial_db(client, exchange_list:list, sqlconnection):
                 es[0]['Part']= exchange_part
                 es[0]['Start']= exchange_start
                 exchanges.extend(es)
-            if(len(es)!=1):
+            
+            if(len(es)>1):
                 raise FeederException("It seems the exchange {exchange} is specified more than once in the list of exchanges to process. Please check the configuration".format(exchange=es[0]['Code']))
             if(found == False):
-                __logger.warn("Could not find exchange %s", exchange_code)
+                __logger.warning("Could not find exchange %s", exchange_code)
 
-    __populate_exchanges(client, sqlconnection, exchanges)
+    __populate_exchanges(client, sqlconnection, exchanges, update)
 
 def __connect_sql_db()->pyodbc.Connection: 
     '''
@@ -415,9 +517,9 @@ def run_feeder_batch(batch_name:str):
     with open("config/controller.json", "r") as config_file:
         config = json.load(config_file)
     exchange_list = __get_exchange_list(config, batch_name)
-    build_initial_db(client, exchange_list, sqlconnection)
+    update_db(client, exchange_list, sqlconnection, False)
 
-def run_feeder(exchange_list):
+def run_feeder(exchange_list, update:bool):
     '''
     Run the feeder for the list of exchanges passed in argument
     Each element of the list is just a list of exchange codes
@@ -425,13 +527,13 @@ def run_feeder(exchange_list):
     api_key = get_oed_apikey()
     client = EodHistoricalData(api_key)
     sqlconnection = __connect_sql_db()
-    build_initial_db(client, exchange_list, sqlconnection)
+    update_db(client, exchange_list, sqlconnection, update)
 
 if __name__ == '__main__':
     try:
-        exchange_list,configfile = process_arguments()
+        exchange_list,configfile,update = process_arguments()
         exchange_list = __build_exchange_list(exchange_list)
-        run_feeder(exchange_list)
+        run_feeder(exchange_list, update)
         display_stats(__stats)
     except Exception as e:
         print("Fatal error:", str(e))

@@ -50,6 +50,7 @@ def __updatedb_exchange(exchange):
     try:
         db_loc = get_config('DB_LOCATION', configfile=__config_file)
         tocreate = os.path.join(db_loc, exchange['Code'])
+        os.makedirs( tocreate, exist_ok=True )
         if not os.path.exists(tocreate):
             # Create the directory
             __logger.info("Creating exchange %s in the database", exchange['Code'])
@@ -535,4 +536,5 @@ if __name__ == '__main__':
         run_feeder(exchange_list, update)
         display_stats(__stats)
     except Exception as e:
-        print("Fatal error:%s", str(e))
+        print("Fatal error:", str(e))
+        __logger.exception("Fatal error:%s", str(e))

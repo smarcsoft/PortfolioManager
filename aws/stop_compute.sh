@@ -1,7 +1,7 @@
 #!/bin/bash
 . $(dirname "$0")/vars.sh
 
-echo -n "Starting backend main server..."
+echo -n "Stopping backend main server..."
 aws ec2 stop-instances --instance-ids $backend_id
 if [ $? -ne 0 ]
 then

@@ -1,7 +1,7 @@
 #!/bin/bash
 . $(dirname "$0")/vars.sh
 
-echo -n "Starting database server..."
+echo -n "Stopping database server..."
 aws ec2 stop-instances --instance-ids $db_id
 if [ $? -ne 0 ]
 then

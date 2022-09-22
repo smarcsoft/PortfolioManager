@@ -1,9 +1,8 @@
 #!/bin/bash
-. $(dirname "$0")/vars.sh
-
 echo "Starting AWS infrastructure"
 start_infra.sh
 echo "Executing feeder..."
-ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem smarcsoft@$backend_ip /home/smarcsoft/dev/PortfolioManager/aws/run.sh
+. $(dirname "$0")/vars.sh #to get the IP adress of the newly started server
+ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem smarcsoft@$backend_ip /home/smarcsoft/dev/PortfolioManager/aws/run.sh --exchange VX
 echo "Stopping AWS infrastructure"
 stop_infra.sh

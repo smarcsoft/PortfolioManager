@@ -24,7 +24,7 @@ cp $CONF_FILE $CONF_FILE.bak
 sed "s/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/$dbip/" $CONF_FILE.bak > $CONF_FILE
 echo "done"
 echo -n "Updating configuration variables..."
-computeip=$(aws ec2 describe-instances --instance-ids $backend_id --query Reservations[].Instances[].PrivateIpAddress[] --output text)
+computeip=$(aws ec2 describe-instances --instance-ids $backend_id --query Reservations[].Instances[].PublicIpAddress[] --output text)
 cp vars.sh vars.bak
 sed "s/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/$computeip/" vars.bak > vars.sh
 rm vars.bak

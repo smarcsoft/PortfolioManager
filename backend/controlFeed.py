@@ -58,6 +58,7 @@ def run_control(config:list, configfile):
 
 if __name__ == '__main__':
     #read json config file
-    with open(process_arguments(), "r") as config_file:
+    conf = process_arguments()
+    with open(conf, "r") as config_file:
         config = json.load(config_file)
-    run_control(config, config_file)
+    run_control(config, conf)

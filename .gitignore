@@ -134,3 +134,4 @@ dmypy.json
 
 # database
 /backend/db
+backend/db.tar

@@ -25,6 +25,7 @@ while [[ $# -gt 0 ]]; do
       CONFIGFILE="$2"
       shift # past argument
       shift # past value
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1

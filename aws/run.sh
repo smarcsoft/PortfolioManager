@@ -4,6 +4,7 @@
 
 #Updating python search path
 EXCHANGE=US
+CONTROLLER=0
 
 #Process command line argument --exchange US
 POSITIONAL_ARGS=()
@@ -14,6 +15,10 @@ while [[ $# -gt 0 ]]; do
       EXCHANGE="$2"
       shift # past argument
       shift # past value
+      ;;
+    -c|--controller)
+      CONTROLLER=1
+      shift
       ;;
     -*|--*)
       echo "Unknown option $1"
@@ -26,6 +31,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "Processing exchange(s) $EXCHANGE..."
-cd $(dirname "$0")/../backend
-python feeder/feeder.py --debug INFO --exchange $EXCHANGE --update
+if [ $CONTROLLER -eq 0 ]
+then
+    echo "Running single feeder processing exchange(s) $EXCHANGE..."
+    cd $(dirname "$0")/../backend
+    python feeder/feeder.py --debug INFO --exchange $EXCHANGE --update
+else
+    echo "Running single controller feeder..."
+    cd $(dirname "$0")/../backend
+    python controlFeed.py --debug INFO
+fi

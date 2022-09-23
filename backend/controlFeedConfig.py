@@ -18,6 +18,7 @@ Without any argument, the configuration file created will be based on the entire
 The biggest exchanges will be split according to the configuration file 
 
 We can provide the -e or --exchanges argument to restrict the universe to the list of exchanges provided.
+We can also provide the -c or --config argument to specify a custom configuration file.
 
 '''
 
@@ -93,13 +94,14 @@ def __split_exchanges(batch_number:int, exchange_stats:list):
     # Sort the exchanges from the biggest to the smallest because we want to allocate the biggest first
     exchanges.sort(key=lambda e: e['Size'], reverse=True)
     bucket_number = -1
+    nextb = 0    
     while len(exchanges) >0:
         #Try to fill the bucket with an exchange.
         #If not possible, try the next bucket
         try:
             bucket_number+=1
             __fillbucket(bucket_number%batch_number, exchanges, buckets, buckets_size)
-            nextb = 0
+            nextb = 0        
         except ExchangeNotAssigned as ena:
             nextb +=1
             if(nextb >=batch_number):
@@ -142,13 +144,14 @@ def __split_exchange(exchange_stats:list, exchange_code_to_split:str, parts:int)
     __logger.warn("Could not find exchange %s in the list of exchanges to split", exchange_code_to_split)
 
 
-exchanges,configfile = process_arguments()
+el, configfile,up = process_arguments()
 API_KEY = get_config("EOD_API_KEY", configfile=configfile)
 client = EodHistoricalData(API_KEY)
 #To generate the list of exchanges, invoke generate_exchange_list(client)
 #exchanges = ['US', 'LSE', 'NEO', 'TO', 'BE', 'F', 'STU', 'HA', 'XETRA', 'HM', 'MU', 'DU', 'MI', 'VI', 'LU', 'PA', 'BR', 'AS', 'LS', 'VX', 'SW', 'MC', 'IR', 'ST', 'OL', 'CO', 'HE', 'IC', 'PR', 'TA', 'HK', 'KQ', 'KO', 'WAR', 'BUD', 'PSE', 'SG', 'BSE', 'KAR', 'SR', 'TSE', 'SN', 'BK', 'JSE', 'SHG', 'NSE', 'AT', 'SHE', 'AU', 'JK', 'CM', 'VN', 'KLSE', 'RO', 'SA', 'BA', 'MX', 'IL', 'ZSE', 'BOND', 'TWO', 'EUBOND', 'LIM', 'GBOND', 'MONEY', 'EUFUND', 'MCX', 'FOREX', 'TW', 'IS', 'INDX', 'CC', 'COMM']
 # For each exchange, get the size of the universe
-
+exchanges = get_config("SPLIT_EXCHANGES", configfile=configfile)
+exchanges = exchanges.split(',')
 if len(exchanges) == 0:
     exchanges = [e['Code'] for e in generate_exchange_list(client)]
 exchange_stats=[]
@@ -167,8 +170,7 @@ for exchange in exchanges:
         __logger.error("Error for %s -> %s", exchange, str(e))
 
 #Check if we have to split exchanges further
-exchanges_to_split = get_config("SPLIT_EXCHANGES", configfile=configfile)
-exchanges_codes_to_split = exchanges_to_split.split(',')
+exchanges_codes_to_split = exchanges
 for exchange_code_to_split in exchanges_codes_to_split:
     #How many parts ?
     parts = get_config("SPLIT_" + exchange_code_to_split.strip(), configfile=configfile)

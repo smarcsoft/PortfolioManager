@@ -8,14 +8,14 @@ from feeder.feeder import run_feeder_batch
 logging.config.fileConfig("config/logging.conf")
 __logger = logging.getLogger('controller')
 
-def run_batch(config:dict)->Process:
+def run_batch(config:dict, configfile)->Process:
     '''
     Spawns a batch process and return the process spawned
     '''
     __logger.info("Running batch %s", config['Batch_Name'])
     __logger.info("Exchanges covered:%s", [exchange['Code'] for exchange in config['Exchanges']])
     #spawn the feeder with the list of exchanges
-    p = Process(target=run_feeder_batch, args=(config['Batch_Name'],))
+    p = Process(target=run_feeder_batch, args=(config['Batch_Name'],configfile))
     p.start()
     return p
 
@@ -42,12 +42,12 @@ def process_arguments():
         config_file = args.config 
     return config_file
 
-def run_control(config:list):
+def run_control(config:list, configfile):
     #run each batch on the current machine
     processes=[]
     for configuration in config:
         __logger.info("Spawning batch process...")
-        p = run_batch(configuration)
+        p = run_batch(configuration, configfile)
         __logger.info("Batch process spawn %s", str(p))
         processes.append(p)
 
@@ -60,4 +60,4 @@ if __name__ == '__main__':
     #read json config file
     with open(process_arguments(), "r") as config_file:
         config = json.load(config_file)
-    run_control(config)
+    run_control(config, config_file)

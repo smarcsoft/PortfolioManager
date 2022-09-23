@@ -76,7 +76,7 @@ def get_config(key:str, *, configfile="config/pm.conf")->str:
 
     try:
         global __config
-        if configfile in __config.keys():
+        if configfile in __config:
             # We are aware of the configuration file
             return __config[configfile][key]
         __config[configfile] = __read_configuration(configfile)

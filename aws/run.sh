@@ -5,6 +5,7 @@
 #Updating python search path
 EXCHANGE=US
 CONTROLLER=0
+CONFIGFILE="config/controller.json"
 
 #Process command line argument --exchange US
 POSITIONAL_ARGS=()
@@ -20,6 +21,10 @@ while [[ $# -gt 0 ]]; do
       CONTROLLER=1
       shift
       ;;
+    --config)
+      CONFIGFILE="$2"
+      shift # past argument
+      shift # past value
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -39,5 +44,5 @@ then
 else
     echo "Running single controller feeder..."
     cd $(dirname "$0")/../backend
-    python controlFeed.py --debug INFO
+    python controlFeed.py --debug INFO --config $CONFIGFILE
 fi

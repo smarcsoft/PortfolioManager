@@ -9,7 +9,12 @@ Contains all configurations files for the backend to run
 
 
 # TODOs:
-Fix feeder log
-Setup the daily update process with a report being emailed daily 
-Avoid API calls if we are trying to update data which is already loaded in the database
-Check the integrity of the price data
+## Must do
+- Deploy jupiter lab on the smarcsoft.com web server
+
+## Should do
+- Setup the daily update process with a report being emailed daily 
+
+## Possible improvements
+- Avoid API calls if we are trying to update data which is already loaded in the database
+- Check the integrity of the price data

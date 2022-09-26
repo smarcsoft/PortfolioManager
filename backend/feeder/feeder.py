@@ -406,6 +406,8 @@ def __populate_exchanges(client, sqlconnection, exchanges:dict, update:bool):
         tickers = __updatedb_tickers(exchange,client)
         if (len(tickers) >0) and (sqlconnection != None):
             load_id = __init_load(exchange, sqlconnection)
+            if load_id == -1:
+                raise FeederException("Cannot retrieve the load ID from the database (most likely an issue with the database itself).")
         for ticker in tickers:
             __feed_db_eodprices(client,exchange, ticker, sqlconnection, load_id, update)
 
@@ -506,7 +508,7 @@ def __build_exchange_list(exchange_list:list):
         to_return.append((exchange, -1, 1, 0))
     return to_return
 
-def run_feeder_batch(batch_name:str):
+def run_feeder_batch(batch_name:str, configfile):
     '''
     Run the feeder for the list of exchanges in batch identified by batch_name
     '''
@@ -514,10 +516,11 @@ def run_feeder_batch(batch_name:str):
     api_key = get_oed_apikey()
     client = EodHistoricalData(api_key)
     sqlconnection = __connect_sql_db()
-    with open("config/controller.json", "r") as config_file:
+    with open(configfile, "r") as config_file:
         config = json.load(config_file)
     exchange_list = __get_exchange_list(config, batch_name)
     update_db(client, exchange_list, sqlconnection, False)
+    display_stats(__stats)
 
 def run_feeder(exchange_list, update:bool):
     '''

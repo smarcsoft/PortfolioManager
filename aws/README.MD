@@ -31,3 +31,39 @@ sudo yum install -y unixODBC-devel
 
 # Using linux and python to run the stuff
 run the linuxsetup.sh script. This will setup the python environment and install the required python packages and switch to the correct python virtual environment.
+
+# Key scripts for Windows
+## connect
+connect.ps1 connects through ssh to the underlying server infrastructure
+Example:
+connect.ps1: connects to the main backend server using the default user name (smarcsoft)
+connect.ps1 -server scheduler connected to the scheduling server using the default user name
+
+# Key scripts for Unix
+## run
+run_remotely.sh: Connects to a compute server to run the update process. This is the script executed by the daily crontab
+run.sh: runs the python update process.
+
+##run.sh
+Main run script able to run the update process locally.
+Examples: 
+run.sh -c or run.sh --controller to run the controller.
+run.sh --controller --configfile=config/controller_us.json will run the controller for the US market
+
+##run_remotely.sh
+Spawns the update process on the AWS compute server
+Examples:
+run_remotely.sh will:
+    . Start the AWS infrastructure
+    . run the controller on the compute server
+    . Stop the AWS infrastructure
+run_remote --no-infra will not spin up and down the infrastructure
+run_remote --no-infra --config config/controller_us.json will run the controller remotely on the compute server for the US stock exchnages.
+
+## infrastructure management
+start_infra.sh: starts the AWS infrastructure (all of it)
+start_compute.sh: starts the main compute server
+start_db.sh: starts the database infrastructure
+stop_infra.sh: stops the entire AWS infrastructure
+stop_compute:sh stops the main compute server
+stop_db.sh: stops the database infrastructure

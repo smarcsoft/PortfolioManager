@@ -1,0 +1,1 @@
+30 23 * * * smarcsoft /home/smarcsoft/PortfolioManager/aws/run_remotely.sh --no-infra --config config/controller_us.json

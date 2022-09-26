@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import logging.config
@@ -7,23 +8,46 @@ from feeder.feeder import run_feeder_batch
 logging.config.fileConfig("config/logging.conf")
 __logger = logging.getLogger('controller')
 
-def run_batch(config:dict)->Process:
+def run_batch(config:dict, configfile)->Process:
     '''
     Spawns a batch process and return the process spawned
     '''
     __logger.info("Running batch %s", config['Batch_Name'])
     __logger.info("Exchanges covered:%s", [exchange['Code'] for exchange in config['Exchanges']])
     #spawn the feeder with the list of exchanges
-    p = Process(target=run_feeder_batch, args=(config['Batch_Name'],))
+    p = Process(target=run_feeder_batch, args=(config['Batch_Name'],configfile))
     p.start()
     return p
 
-def run_control(config:list):
+
+def process_arguments():
+    '''
+    Return the configuration file to use
+    '''
+    parser = argparse.ArgumentParser(description="Feed the database of the portfolio manager using multiple loader instances")
+    parser.add_argument('--debug', '--log', '-d', nargs='?', choices=['DEBUG', 'INFO','WARN', 'ERROR','CRITICAL'], help="Enable debugging with the specified level")
+    parser.add_argument('--config', '-c', nargs='?', action="store",type=str, help="Use the configuration file specified.")
+    parser.add_argument('--version', action='version', version='%(prog)s 0.1')
+    args=parser.parse_args()
+    debug_level = None
+    if hasattr(args,"d"): debug_level = args.d 
+    if hasattr(args,"debug"): debug_level = args.debug 
+    if hasattr(args,"log"): debug_level = args.log 
+    if debug_level != None:
+        logging.getLogger(None).setLevel(debug_level.upper())
+        __logger.info("Debug level set to %s", debug_level.upper())
+
+    config_file = "config/controller.json"
+    if hasattr(args,"config") and (args.config != None): 
+        config_file = args.config 
+    return config_file
+
+def run_control(config:list, configfile):
     #run each batch on the current machine
     processes=[]
     for configuration in config:
         __logger.info("Spawning batch process...")
-        p = run_batch(configuration)
+        p = run_batch(configuration, configfile)
         __logger.info("Batch process spawn %s", str(p))
         processes.append(p)
 
@@ -34,6 +58,7 @@ def run_control(config:list):
 
 if __name__ == '__main__':
     #read json config file
-    with open("config/controller.json", "r") as config_file:
+    conf = process_arguments()
+    with open(conf, "r") as config_file:
         config = json.load(config_file)
-    run_control(config)
+    run_control(config, conf)

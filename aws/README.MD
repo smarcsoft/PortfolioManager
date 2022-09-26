@@ -44,13 +44,13 @@ connect.ps1 -server scheduler connected to the scheduling server using the defau
 run_remotely.sh: Connects to a compute server to run the update process. This is the script executed by the daily crontab
 run.sh: runs the python update process.
 
-##run.sh
+## run.sh
 Main run script able to run the update process locally.
 Examples: 
 run.sh -c or run.sh --controller to run the controller.
 run.sh --controller --configfile=config/controller_us.json will run the controller for the US market
 
-##run_remotely.sh
+## un_remotely.sh
 Spawns the update process on the AWS compute server
 Examples:
 run_remotely.sh will:

@@ -11,4 +11,4 @@ source $ROOTDIR/smarcsoft/bin/activate
 export PYTHONPATH="$PMBASEDIR/backend/api"
 export DB_LOCATION="$PMBASEDIR/backend/db"
 echo "Starting jupiter lab...."
-jupyter-lab --no-browser --notebook-dir=notebooks
+jupyter-lab --ip "*" --port=8888 --no-browser --notebook-dir=$PMBASEDIR/frontend/lab/notebooks

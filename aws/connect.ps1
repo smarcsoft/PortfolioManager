@@ -9,13 +9,13 @@ switch ($server)
         Invoke-Expression "aws ec2 describe-instances --region us-east-1 --query `"Reservations[].Instances[?InstanceId=='$instance_id'].PublicIpAddress[]|[0]`"" -OutVariable out | Tee-Object -Variable out 
         $dns = $out.Trim('"')
         Write-Host "Connecting with user $username and keyfile $keyfile"
-        Invoke-Expression "ssh -i C:\Users\sebma\OneDrive\dev\aws\$keyfile $($username)@$($dns)" 
+        Invoke-Expression "ssh -o StrictHostKeyChecking=no -i C:\Users\sebma\OneDrive\dev\aws\$keyfile $($username)@$($dns)" 
     }
     "scheduler"
     {
         $dns="54.171.15.30"
         Write-Host "Connecting to the scheduling server"
-        Invoke-Expression "ssh -i C:\Users\sebma\OneDrive\dev\aws\$keyfile $($username)@$($dns)" 
+        Invoke-Expression "ssh -o StrictHostKeyChecking=no -i C:\Users\sebma\OneDrive\dev\aws\$keyfile $($username)@$($dns)" 
     }
 }
 

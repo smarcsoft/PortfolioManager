@@ -14,6 +14,7 @@ Contains all configurations files for the backend to run
 
 ## Should do
 - Setup the daily update process with a report being emailed daily 
+- Purge old exchange load IDs (with ticker loads) from the database and setup automated cleanup job
 
 ## Possible improvements
 - Avoid API calls if we are trying to update data which is already loaded in the database

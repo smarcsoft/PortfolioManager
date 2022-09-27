@@ -1,5 +1,6 @@
 # AWSW Linux one time preparation
 ## To install python 3.10:
+sudo yum install sqlite-devel.x86_64 #Required by jupyter-lab
 sudo yum -y groupinstall "Development Tools"
 sudo yum -y install gcc devel libffi-devel openssl11 openssl11-devel
 wget https://www.python.org/ftp/python/3.10.2/Python-3.10.2.tgz

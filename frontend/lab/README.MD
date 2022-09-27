@@ -3,6 +3,7 @@
 pip install jupyterlab
 pip install notebook
 pip install voila
+pip install matplotlib
 
 ## Start-up:
 In this directory:

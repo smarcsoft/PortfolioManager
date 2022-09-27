@@ -35,7 +35,7 @@ fi
 echo "Executing feeder..."
 #Get the public IP of the compute server
 backend_ip=$(aws ec2 describe-instances --instance-ids i-0a3774d4c3e971e64 --query Reservations[].Instances[].PublicIpAddress[] --output text)
-ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --config $CONFIGFILE
+ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --config $CONFIGFILE
 if [ $NO_INFRA -eq 0 ]
 then
     echo "Stopping AWS infrastructure"

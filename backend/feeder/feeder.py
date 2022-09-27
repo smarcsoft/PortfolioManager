@@ -485,8 +485,7 @@ def __connect_sql_db()->pyodbc.Connection:
         cnxn = pyodbc.connect(connectionurl)
         return cnxn
     except Exception as e:
-        __logger.error("Cannot connect to SQL database:%s", str(e))
-        return None
+        raise FeederException("Cannot connect to SQL database {server}: {error_message}".format(server=server, error_message=str(e)))
 
 
 def __get_exchange_list(config:dict, batch_name:str)->list:
@@ -531,13 +530,13 @@ def run_feeder(exchange_list, update:bool):
     client = EodHistoricalData(api_key)
     sqlconnection = __connect_sql_db()
     update_db(client, exchange_list, sqlconnection, update)
+    display_stats(__stats)
 
 if __name__ == '__main__':
     try:
         exchange_list,configfile,update = process_arguments()
         exchange_list = __build_exchange_list(exchange_list)
         run_feeder(exchange_list, update)
-        display_stats(__stats)
     except Exception as e:
         print("Fatal error:", str(e))
         __logger.exception("Fatal error:%s", str(e))

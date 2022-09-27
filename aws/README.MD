@@ -1,5 +1,6 @@
 # AWSW Linux one time preparation
 ## To install python 3.10:
+sudo yum install sqlite-devel.x86_64 #Required by jupyter-lab
 sudo yum -y groupinstall "Development Tools"
 sudo yum -y install gcc devel libffi-devel openssl11 openssl11-devel
 wget https://www.python.org/ftp/python/3.10.2/Python-3.10.2.tgz
@@ -12,6 +13,8 @@ sudo make altinstall
 Check the installed version:
 python3.10 --version
 
+## To install pip:
+sudo yum install python-pip
 
 ## To install the SQL Server ODBC drivers:
 sudo su
@@ -37,7 +40,8 @@ run the linuxsetup.sh script. This will setup the python environment and install
 connect.ps1 connects through ssh to the underlying server infrastructure
 Example:
 connect.ps1: connects to the main backend server using the default user name (smarcsoft)
-connect.ps1 -server scheduler connected to the scheduling server using the default user name
+connect.ps1 -server scheduler connects to the scheduling server using the default user name
+connect.ps1 -username ec2-user -keyfile PortfolioManager.pem -server backend connects to the main compute server using the ec2-user
 
 # Key scripts for Unix
 ## run

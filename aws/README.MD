@@ -44,25 +44,31 @@ connect.ps1 -server scheduler connects to the scheduling server using the defaul
 connect.ps1 -username ec2-user -keyfile PortfolioManager.pem -server backend connects to the main compute server using the ec2-user
 
 # Key scripts for Unix
-## run
-run_remotely.sh: Connects to a compute server to run the update process. This is the script executed by the daily crontab
+run_update.sh: Connects to a compute server to run the update process. This is the script executed by the daily crontab
+run_jupiter.sh: Connects to a compute server to run the jupiter server.
 run.sh: runs the python update process.
 
 ## run.sh
-Main run script able to run the update process locally.
+Main run script able to run the update process locally. Prefer run_update.sh over run.sh.
 Examples: 
 run.sh -c or run.sh --controller to run the controller.
 run.sh --controller --configfile=config/controller_us.json will run the controller for the US market
 
-## un_remotely.sh
+## run_update.sh
 Spawns the update process on the AWS compute server
 Examples:
-run_remotely.sh will:
+run_update.sh will:
     . Start the AWS infrastructure
     . run the controller on the compute server
     . Stop the AWS infrastructure
-run_remote --no-infra will not spin up and down the infrastructure
-run_remote --no-infra --config config/controller_us.json will run the controller remotely on the compute server for the US stock exchnages.
+run_update.sh --no-infra will not spin up and down the infrastructure
+run_update.sh --no-infra --config config/controller_us.json will run the controller remotely on the compute server for the US stock exchnages.
+
+## run_jupiter.sh
+Runs the jupiter server on the AWS compute server. Will start the server if not running.
+Examples:
+run_jupiter.sh --no-infra will not spin up the infrastructure
+run_jupiter.sh will spin up the infrastructure if needed and will run the jupiter server on it.
 
 ## infrastructure management
 start_infra.sh: starts the AWS infrastructure (all of it)

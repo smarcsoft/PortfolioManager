@@ -7,11 +7,21 @@ INFRA_STARTED=0
 CHECK=0
 PUBLIC_IP=
 PRIVATE_IP=
+SILENT=0
+DISPLAY_IPS=0
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --check)
       CHECK=1
+      shift # past argument
+      ;;
+    --ips)
+      DISPLAY_IPS=1
+      shift # past argument
+      ;;
+    --silent)
+      SILENT=1
       shift # past argument
       ;;
     -*|--*)
@@ -35,27 +45,33 @@ then
 	#Get its public IP
 	PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $backend_id --query Reservations[].Instances[].PublicIpAddress --output text)
 	PRIVATE_IP=$(aws ec2 describe-instances --instance-ids $backend_id --query Reservations[].Instances[].PrivateIpAddress --output text)
-	echo "$PUBLIC_IP,$PRIVATE_IP"
+	[ $DISPLAY_IPS -eq 1 ] && echo "$PUBLIC_IP,$PRIVATE_IP"
 	exit 0
     else
-	echo "not started"
+	echo "not_started"
 	exit -1
     fi
 fi
 
-echo -n "Starting backend main server..."
-aws ec2 start-instances --instance-ids $backend_id
+[ $SILENT -eq 0 ] && echo -n "Starting backend main server..."
+aws ec2 start-instances --instance-ids $backend_id >/dev/null
 if [ $? -ne 0 ]
 then
-    echo "failed!"
+    [ $SILENT -eq 0 ] && echo "failed!"
     exit -1
 fi
-echo "succeeded"
-echo -n "Waiting for running status..."
-aws ec2 wait instance-running --instance-ids $backend_id
+[ $SILENT -eq 0 ] && echo "succeeded"
+[ $SILENT -eq 0 ] && echo -n "Waiting for running status..."
+$(aws ec2 wait instance-running --instance-ids $backend_id >/dev/null)
 if [ $? -ne 0 ]
 then
-    echo "failed!"
+    [ $SILENT -eq 0 ] && echo "failed!"
     exit -1
 fi
-echo "suceeded"
+[ $SILENT -eq 0 ] && echo "suceeded"
+if [ $DISPLAY_IPS -eq 1 ]
+then
+    PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $backend_id --query Reservations[].Instances[].PublicIpAddress --output text)
+    PRIVATE_IP=$(aws ec2 describe-instances --instance-ids $backend_id --query Reservations[].Instances[].PrivateIpAddress --output text)
+    echo "$PUBLIC_IP,$PRIVATE_IP"
+fi

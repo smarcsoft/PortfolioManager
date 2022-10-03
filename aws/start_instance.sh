@@ -43,10 +43,10 @@ then
     fi
 else
     INFRA_STARTED=$($curdir/start_compute.sh --check)
-    if [ $INFRA_STARTED = "not started" ]
+    if [ $INFRA_STARTED = "not_started" ]
     then
 	echo "Starting AWS infrastructure..."
-	INFRA_STARTED=$($curdir/start_compute.sh)
+	INFRA_STARTED=$($curdir/start_compute.sh --silent --ips)
     fi
     #Get the IP addresses of the compute server to update the reverse proxy
     IPS=($(echo $INFRA_STARTED | tr ',' ' '))
@@ -57,6 +57,6 @@ else
     $curdir/run_jupiter.sh --no-infra &
     sleep 5
     #Reload apache config file
-    echo "Please reloading apache configuration file"
+    echo "Please reloading apache configuration file (apachectl -k graceful)"
  fi
 

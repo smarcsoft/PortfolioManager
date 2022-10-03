@@ -11,7 +11,7 @@ configure_proxy()
     PUBLIC_IP=$1
     PRIVATE_IP=$2
     echo "Configuring reverse proxy with public IP $PUBLIC_IP and private IP $PRIVATE_IP"
-    
+    python3 $curdir/configure_proxy.py --public $PUBLIC_IP --private $PRIVATE_IP
 }
 
 while [[ $# -gt 0 ]]; do
@@ -53,5 +53,10 @@ else
     PUBLIC_IP=${IPS[0]}
     PRIVATE_IP=${IPS[1]}
     configure_proxy $PUBLIC_IP $PRIVATE_IP
+    echo "Starting jupiter asynchronously"
+    $curdir/run_jupiter.sh --no-infra &
+    sleep 5
+    #Reload apache config file
+    echo "Please reloading apache configuration file"
  fi
 

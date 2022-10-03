@@ -11,6 +11,7 @@ Contains all configurations files for the backend to run
 # TODOs:
 ## Must do
 - Deploy jupiter lab on the smarcsoft.com web server
+    - Automate the proxy configuration when the compute sever starts
 
 ## Should do
 - Setup the daily update process with a report being emailed daily 

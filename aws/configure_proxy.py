@@ -21,7 +21,7 @@ def process_arguments()->tuple:
     return public_ip, private_ip
 
 def modify(line, ip):
-    return re.sub(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}[^0-9]", ip, line)
+    return re.sub(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", ip, line)
 
 def configure(public_ip, private_ip):
     print("Modifying configuration file:"+config_file)

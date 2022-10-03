@@ -44,6 +44,7 @@ connect.ps1 -server scheduler connects to the scheduling server using the defaul
 connect.ps1 -username ec2-user -keyfile PortfolioManager.pem -server backend connects to the main compute server using the ec2-user
 
 # Key scripts for Unix
+start_instance.sh: This is the master scripts. It starts the compute server if needed, run jupiter on it, and configure the web proxy to access it through pm.smarcsoft.com
 run_update.sh: Connects to a compute server to run the update process. This is the script executed by the daily crontab
 run_jupiter.sh: Connects to a compute server to run the jupiter server.
 run.sh: runs the python update process.
@@ -77,3 +78,6 @@ start_db.sh: starts the database infrastructure
 stop_infra.sh: stops the entire AWS infrastructure
 stop_compute:sh stops the main compute server
 stop_db.sh: stops the database infrastructure
+
+### start_compute.sh [--check]
+starts the main compute server. If --check is provided, checks if the infrastructure is already started and prints the public (first) and private IP (second) addresses of the server like "x.x.x.x,y.y.y.u" if the compute server is started or "not started" otherwise

@@ -2,15 +2,12 @@ import argparse
 import logging.config
 import re
 
-config_file = "/opt/bitnami/apache/conf/vhosts/pm-vhost.conf"
+config_file="/opt/bitnami/apache/conf/vhosts/pm-vhost.conf"
 
 def process_arguments()->tuple:
     '''
     Return the configuration file to use
     '''
-
-    global config_file
-
     parser = argparse.ArgumentParser(description="Update the reverse proxy configuration")
     parser.add_argument('--file', nargs='?',action="store",type=str, help="Public IP of the compute server")
     parser.add_argument('--public', nargs='+',action="store",type=str, help="Public IP of the compute server")
@@ -27,6 +24,7 @@ def modify(line, ip):
     return re.sub(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}[^0-9]", ip, line)
 
 def configure(public_ip, private_ip):
+    print("Modifying configuration file:"+config_file)
     #Read the configuration file line by line and update the IP addresses accordingly
     with open(config_file, "rt") as conf:
         lines = conf.readlines()

@@ -6,3 +6,4 @@ To change its port number, modify /opt/bitnami/apache/conf/httpd.conf
 nginx
 configuration file located at /etc/nginx/nginx.conf
 log file /var/log/nginx/access.log
+    

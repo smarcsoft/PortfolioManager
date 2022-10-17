@@ -44,3 +44,9 @@ The correct proxy configuration is the following (after 2 days of research/work)
    ProxyPassReverse ws://[computeIP]:9999/api/kernels
   </Location>
 </VirtualHost>
+
+
+# Node and REACT setup
+## One time
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs

@@ -1,4 +1,6 @@
+import os
 import string
+import sys
 from xmlrpc.client import boolean
 from flask import Flask
 from flask_restful import Resource, Api, reqparse
@@ -9,6 +11,8 @@ from flask_cors import CORS
 import logging
 import logging.config
 import logging.handlers
+sys.path.append(os.path.join(os.getcwd(),'..','..','utils'))
+from config import get_config
 
 
 logging.config.fileConfig("config/logging.conf")
@@ -28,7 +32,9 @@ STOPPING=64
 STOPPED=80
 
 api = Api(app)
-boto3.Session(aws_access_key_id="AKIAT54M7TNCJ6NIQTF5", aws_secret_access_key="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")
+k=get_config("akey", configfile="config/pmapi.conf")
+s=get_config("asec", configfile="config/pmapi.conf")
+boto3.Session(k, s)
 client = boto3.client('ec2', 'us-east-1')
 
 

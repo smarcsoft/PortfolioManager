@@ -1,5 +1,7 @@
+import argparse
 import os
 import string
+import subprocess
 import sys
 from xmlrpc.client import boolean
 from flask import Flask
@@ -31,12 +33,15 @@ TERMINATED=48
 STOPPING=64
 STOPPED=80
 
+CONFIG_FILE="config/pmapi.conf"
+
 api = Api(app)
-k=get_config("akey", configfile="config/pmapi.conf")
-s=get_config("asec", configfile="config/pmapi.conf")
+k=get_config("akey", configfile=CONFIG_FILE)
+s=get_config("asec", configfile=CONFIG_FILE)
 boto3.Session(k, s)
 client = boto3.client('ec2', 'us-east-1')
-
+unix = False
+scriptdir=get_config("scriptdir", configfile=CONFIG_FILE)
 
 @app.route("/")
 class Services(Resource):
@@ -63,7 +68,10 @@ class Services(Resource):
         '''
         try:
             self._logger.debug("post called. Starting servers.")
-            toreturn=self.start_server()
+            if unix:
+                toreturn = self.start_unix_server()
+            else:
+                toreturn=self.start_server()
             return {'status': toreturn}, 200
         except Exception as e:
             self._logger.error(e)
@@ -75,18 +83,35 @@ class Services(Resource):
         '''
         try:
             self._logger.debug("delete called. Stopping servers.")
-            instance_id=self.get_compute_instance_id()
-            self._logger.debug("Instance ID of stopped server:%s. Now stopping...", instance_id)
-            r = client.stop_instances(InstanceIds=[instance_id])
-            code:number =-1
-            for instance in r["StoppingInstances"]:
-                code=instance["CurrentState"]["Code"]
-                self._logger.debug("Instance state code of %s:%d", instance_id, code)
-                return {'status': code}, 200
+            if unix:
+                return self.stop_unix_server()
+            else:
+                return self.stop_server()    
         except Exception as e:
             self._logger.error(e)
             return {'status': EXCEPTION,'details':e.__repr__()}, 200
         
+
+    def stop_server(self):
+        instance_id=self.get_compute_instance_id()
+        self._logger.debug("Instance ID of stopped server:%s. Now stopping...", instance_id)
+        r = client.stop_instances(InstanceIds=[instance_id])
+        code:number =-1
+        for instance in r["StoppingInstances"]:
+            code=instance["CurrentState"]["Code"]
+            self._logger.debug("Instance state code of %s:%d", instance_id, code)
+            return {'status': code}, 200
+
+    def stop_unix_server(self):
+        self._logger.debug("Stopping servers....")
+        stop_script=os.path.join(scriptdir,"stop_instance.sh")
+        self._logger.info("Executing %s", stop_script)
+        cp:subprocess.CompletedProcess = subprocess.run(stop_script)
+        if cp.returncode == 0:
+            self._logger.info("Done with success")
+            return {'status': STOPPED}, 200
+        self._logger.error(cp.stdout)
+        return {'status': EXCEPTION,'details':cp.stdout}, 200
 
     def start_server(self)->number:
         self._logger.debug("Starting servers....")
@@ -107,11 +132,25 @@ class Services(Resource):
                 instance_status_code=instance["InstanceStatus"]["Status"]
                 self._logger.debug("Instance status of %s:%s", instance_id, instance_status_code)
                 if instance_status_code=='ok':
-                    self._logger.debug("Regturning RUNNING")
+                    self._logger.debug("Returning RUNNING")
                     return RUNNING
         self._logger.debug("Regturning PENDING")
         return PENDING
 
+
+    def start_unix_server(self)->number:
+        self._logger.debug("Starting servers....")
+        if self.check_server_status() == True:
+            self._logger.debug("Servers were already started....")
+            return RUNNING
+        start_script=os.path.join(scriptdir,"start_instance.sh")
+        self._logger.info("Executing %s", start_script)
+        cp:subprocess.CompletedProcess = subprocess.run(start_script)
+        if cp.returncode == 0:
+            self._logger.info("Done with success")
+            return RUNNING
+        self._logger.error(cp.stdout)
+        return {'status': EXCEPTION,'details':cp.stdout}, 200
 
 
 
@@ -129,11 +168,23 @@ class Services(Resource):
         return 'i-0a3774d4c3e971e64'
 
 
+def process_arguments():
+    '''
+    Return the configuration file to use
+    '''
+    parser = argparse.ArgumentParser(description="Starts the frontend API")
+    parser.add_argument('--unix',action="store_true", help="Enables the unix implementation")
+    args=parser.parse_args()
+
+    if hasattr(args, "unix"):
+        unix=args.unix
+        if unix: print("Starting unix implementation of frontend API")
+    
+    return unix
 
 
 api.add_resource(Services, '/services')
-
-
 if __name__ == '__main__':
     logging.getLogger(None).setLevel("DEBUG")
+    process_arguments()
     app.run()  # run our Flask app

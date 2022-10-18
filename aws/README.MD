@@ -49,6 +49,7 @@ start_instance.sh: This is the master scripts. It starts the compute server if n
 run_update.sh: Connects to a compute server to run the update process. This is the script executed by the daily crontab
 run_jupiter.sh: Connects to a compute server to run the jupiter server.
 run.sh: runs the python update process.
+restart_proxy.sh: Restarts the reverse proxy
 
 ## run.sh
 Main run script able to run the update process locally. Prefer run_update.sh over run.sh.

@@ -189,6 +189,8 @@ export class App extends Component<{}, {console_text:string}> {
       this.addline("Starting compute server...");
       await this.start_infrastructure();
       this.addline("Launching financial data science platform...")
+      // Wait 15 seconds, the time usually needed by AWS to accept incoming connections.
+      await new Promise( resolve => setTimeout(resolve, 15000) );
       await this.start_jupyter_server();
       this.addline("Launched!")
     }

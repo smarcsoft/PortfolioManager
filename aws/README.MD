@@ -42,6 +42,8 @@ cd Python-3.10.*/
 make -j 4
 sudo make altinstall
 Check result with python3.10 --version
+cd ..;sudo rm -rf Python-3.10.0 Python-3.10.0.tgz
+
 
 
 # Using linux and python to run the stuff

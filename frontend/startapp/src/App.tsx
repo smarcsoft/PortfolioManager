@@ -17,6 +17,8 @@ const PENDING:number = 0;
 const RUNNING:number = 16;
 const NOT_KNOWN:number  = -1;
 
+const SERVICES_URL='http://44.211.192.23:5000/services'
+
 const appTheme: PartialTheme = {
   palette: {
     themePrimary: '#96d2ff',
@@ -313,8 +315,8 @@ export class App extends Component<{}, {console_text:string}> {
 
   private async start_compute()
   {
-    console.log("sending POST http://127.0.0.1:5000/services");
-    const response =  await fetch('http://127.0.0.1:5000/services',{method:'POST'});
+    console.log("sending POST "+SERVICES_URL);
+    const response =  await fetch(SERVICES_URL,{method:'POST'});
     if(response.ok){
       console.log("response ok");
       let myjson = await response.json()
@@ -327,7 +329,7 @@ export class App extends Component<{}, {console_text:string}> {
 
   private async stop_compute()
   {
-    const response =  await fetch('http://127.0.0.1:5000/services',{method:'DELETE'});
+    const response =  await fetch(SERVICES_URL,{method:'DELETE'});
     if(response.ok){
       let myjson = await response.json()
       return myjson as Promise<ServerStatus>
@@ -357,13 +359,19 @@ export class App extends Component<{}, {console_text:string}> {
 
   async get_server_status():Promise<ServerStatus>
   {
-    const response =  await fetch('http://127.0.0.1:5000/services',{method:'GET'});
-    if(response.ok){
-      let myjson = await response.json()
-      return myjson as Promise<ServerStatus>
+    try {
+      const response =  await fetch(SERVICES_URL,{method:'GET'});
+      if(response.ok){
+        let myjson = await response.json()
+        return myjson as Promise<ServerStatus>
+      }
+      else{
+        throw new Error("Could not get compute server status:"+response.statusText);
+      }
     }
-    else{
-      throw new Error("Could not get compute server stats:"+response.statusText);
+    catch (e)
+    {
+      throw new Error("Could not get compute server status:"+e);
     }
   }
  

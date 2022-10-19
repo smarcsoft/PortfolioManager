@@ -102,17 +102,7 @@ class Services(Resource):
             self._logger.debug("Instance state code of %s:%d", instance_id, code)
             return {'status': code}, 200
 
-    def stop_unix_server(self):
-        self._logger.debug("Stopping servers....")
-        stop_script=os.path.join(scriptdir,"stop_instance.sh")
-        self._logger.info("Executing %s", stop_script)
-        cp:subprocess.CompletedProcess = subprocess.run(stop_script)
-        if cp.returncode == 0:
-            self._logger.info("Done with success")
-            return {'status': STOPPED}, 200
-        self._logger.error(cp.stdout)
-        return {'status': EXCEPTION,'details':cp.stdout}, 200
-
+    
     def start_server(self)->number:
         self._logger.debug("Starting servers....")
         if self.check_server_status() == True:
@@ -134,23 +124,8 @@ class Services(Resource):
                 if instance_status_code=='ok':
                     self._logger.debug("Returning RUNNING")
                     return RUNNING
-        self._logger.debug("Regturning PENDING")
+        self._logger.debug("Returning PENDING")
         return PENDING
-
-
-    def start_unix_server(self)->number:
-        self._logger.debug("Starting servers....")
-        if self.check_server_status() == True:
-            self._logger.debug("Servers were already started....")
-            return RUNNING
-        start_script=os.path.join(scriptdir,"start_instance.sh")
-        self._logger.info("Executing %s", start_script)
-        cp:subprocess.CompletedProcess = subprocess.run(start_script)
-        if cp.returncode == 0:
-            self._logger.info("Done with success")
-            return RUNNING
-        self._logger.error(cp.stdout)
-        return {'status': EXCEPTION,'details':cp.stdout}, 200
 
 
 
@@ -168,23 +143,31 @@ class Services(Resource):
         return 'i-0a3774d4c3e971e64'
 
 
-def process_arguments():
-    '''
-    Return the configuration file to use
-    '''
-    parser = argparse.ArgumentParser(description="Starts the frontend API")
-    parser.add_argument('--unix',action="store_true", help="Enables the unix implementation")
-    args=parser.parse_args()
+@app.route("/")
+class Jupyter(Resource):
 
-    if hasattr(args, "unix"):
-        unix=args.unix
-        if unix: print("Starting unix implementation of frontend API")
-    
-    return unix
+    def __init__(self):
+        self._logger = logging.getLogger('root')
+        self._logger.debug("Logging initialized.")
+
+    def post(self):
+        try:
+            self._logger.debug("get called on jupyter endpoint.")
+            start_script=os.path.join(scriptdir,"run_jupiter.sh")
+            self._logger.info("Executing %s", start_script)
+            cp:subprocess.CompletedProcess = subprocess.run(start_script)
+            if cp.returncode == 0:
+                self._logger.info("Done with success")
+                return {'status': RUNNING}, 200
+            self._logger.error(cp.stdout)
+            return {'status': EXCEPTION,'details':cp.stdout}, 200
+        except Exception as e:
+            self._logger.error(e)
+            return {'status': EXCEPTION,'details':e.__repr__()}, 200
 
 
 api.add_resource(Services, '/services')
+api.add_resource(Jupyter, '/jupyter')
 if __name__ == '__main__':
     logging.getLogger(None).setLevel("DEBUG")
-    process_arguments()
     app.run(host='0.0.0.0')  # run our Flask app

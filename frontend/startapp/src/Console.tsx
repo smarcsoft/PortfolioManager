@@ -1,9 +1,9 @@
-import React from 'react';
+import {Component} from 'react';
 import { Stack, TextField } from '@fluentui/react';
 import './App.css';
 
 //export class Console extends React.Component <{lines:string[], currentline:number}>{
-export class Console extends React.Component <{text:string}>{
+export class Console extends Component <{text:string}>{
 
     //constructor(props: { lines: string[], currentline:0 } | Readonly<{ lines: string[], currentline:0 }>)
     // constructor(props: { text: string} | Readonly<{ text: string}>)

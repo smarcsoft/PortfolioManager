@@ -1,4 +1,4 @@
-import React from 'react';
+import {Component} from 'react';
 import { ThemeProvider, PartialTheme, Stack, CompoundButton, IStackTokens } from '@fluentui/react';
 import './App.css';
 import { Console } from './Console';
@@ -47,7 +47,7 @@ const appTheme: PartialTheme = {
 const stackTokens: IStackTokens = { childrenGap: 40 };
 
 //export class App extends React.Component<{}, {lines:string[]}> {
-export class App extends React.Component<{}, {console_text:string}> {
+export class App extends Component<{}, {console_text:string}> {
   currentline: number;
   cursorline: number;
   // Initial button states

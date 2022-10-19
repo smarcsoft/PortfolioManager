@@ -155,7 +155,7 @@ class Jupyter(Resource):
             self._logger.debug("get called on jupyter endpoint.")
             start_script=os.path.join(scriptdir,"run_jupyter.sh")
             self._logger.info("Executing %s", start_script)
-            cp:subprocess.CompletedProcess = subprocess.run(start_script)
+            cp:subprocess.CompletedProcess = subprocess.run([start_script, "--background"])
             if cp.returncode == 0:
                 self._logger.info("Done with success")
                 return {'status': RUNNING}, 200

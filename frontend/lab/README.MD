@@ -6,10 +6,17 @@ pip install voila
 pip install matplotlib
 
 ## Start-up:
+### run_jupiter.sh
+Runs the jupiter server.
+jupyter notebook runs at http://localhost:9999/
+
+### Manually:
 In this directory:
 jupyter-lab
 jupyter notebook
 voila 
+
+Please prefer the run_jupiter.sh over the manual procedure.
 
 ## To expose jupiter notebooks on the internet
 ## One-time on the compute server:
@@ -23,6 +30,7 @@ jupyter notebook --generate-config -> /home/smarcsoft/.jupyter/jupyter_notebook_
 jupyter_notebook_config.py and jupyter_server_config.py
 c.ServerApp.allow_origin = '*'
 c.ServerApp.allow_remote_access = True
+
 
 jupyter notebook runs at http://localhost:8888/
 jupyter server runs on port 9999.

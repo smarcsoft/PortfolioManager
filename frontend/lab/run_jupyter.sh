@@ -37,6 +37,6 @@ then
     jupyter server --notebook-dir=$PMBASEDIR/frontend/lab/notebooks
 else
     echo "Starting jupiter server as a background process..."
-    jupyter server --notebook-dir=$PMBASEDIR/frontend/lab/notebooks&
+    nohup jupyter server --notebook-dir=$PMBASEDIR/frontend/lab/notebooks >/dev/null 2>&1 &
 fi
 

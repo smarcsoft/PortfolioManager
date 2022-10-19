@@ -9,3 +9,5 @@ pip install boto3
 
 ## Start the API:
 python pmapi.py
+or
+runapi.sh

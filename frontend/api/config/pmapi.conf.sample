@@ -1,2 +1,3 @@
 akey=<your AWS key here>
 asec=<your AWS secret here>
+scriptdir=/home/smarcsoft/PortfolioManager/aws

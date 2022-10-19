@@ -187,4 +187,4 @@ api.add_resource(Services, '/services')
 if __name__ == '__main__':
     logging.getLogger(None).setLevel("DEBUG")
     process_arguments()
-    app.run()  # run our Flask app
+    app.run(host='0.0.0.0')  # run our Flask app

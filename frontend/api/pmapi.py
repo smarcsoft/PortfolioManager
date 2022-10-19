@@ -153,7 +153,7 @@ class Jupyter(Resource):
     def post(self):
         try:
             self._logger.debug("get called on jupyter endpoint.")
-            start_script=os.path.join(scriptdir,"run_jupiter.sh")
+            start_script=os.path.join(scriptdir,"run_jupyter.sh")
             self._logger.info("Executing %s", start_script)
             cp:subprocess.CompletedProcess = subprocess.run(start_script)
             if cp.returncode == 0:

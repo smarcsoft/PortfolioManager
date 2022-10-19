@@ -23,9 +23,8 @@ const PENDING:number = 0;
 const RUNNING:number = 16;
 const NOT_KNOWN:number  = -1;
 
-//const SERVICES_URL='http://44.211.192.23:5000/services'
-const SERVICES_URL='http://127.0.0.1:5000/services'
-const JUPYTER_SERVICES_URL='http://127.0.0.1:5000/jupyter'
+const SERVICES_URL='http://44.211.192.23:5000/services'
+const JUPYTER_SERVICES_URL='http://44.211.192.23:5000/jupyter'
 
 const appTheme: PartialTheme = {
   palette: {

@@ -3,6 +3,7 @@ import os
 import string
 import subprocess
 import sys
+from typing import Literal, TypedDict
 from xmlrpc.client import boolean
 from flask import Flask
 from flask_restful import Resource, Api, reqparse
@@ -15,6 +16,12 @@ import logging.config
 import logging.handlers
 sys.path.append(os.path.join(os.getcwd(),'..','..','utils'))
 from config import get_config
+
+
+class Status(TypedDict):
+    status_code: int
+    message: str
+    ip: str
 
 
 logging.config.fileConfig("config/logging.conf")
@@ -49,50 +56,43 @@ class Services(Resource):
     def __init__(self):
         self._logger = logging.getLogger('root')
         self._logger.debug("Logging initialized.")
+        self._IP = None
 
     def get(self):
         '''
         return the status code of the compute instance of -1 if it cannot be known
         '''
         try:
-            self._logger.debug("get called. Checking state.")
-            toreturn=self.check_server_status()
-            return {'status': toreturn}, 200
+            self._logger.debug("Get called. Checking state.")
+            return self.check_server_status(), 200
         except Exception as e:
             self._logger.error(e)
-            return {'status': EXCEPTION,'details':e.__repr__()}, 200
+            return {'status_code': EXCEPTION,'message':e.__repr__()}, 200
 
     def post(self):
         '''
         return the status code of the compute instance once started
         '''
         try:
-            self._logger.debug("post called. Starting servers.")
-            if unix:
-                toreturn = self.start_unix_server()
-            else:
-                toreturn=self.start_server()
-            return {'status': toreturn}, 200
+            self._logger.debug("Post called. Starting servers.")
+            return self.start_server(), 200
         except Exception as e:
             self._logger.error(e)
-            return {'status': EXCEPTION,'details':e.__repr__()}, 200
+            return {'status_code': EXCEPTION,'message':e.__repr__()}, 200
 
     def delete(self):
         '''
         return the status code of the compute instance once stopped
         '''
         try:
-            self._logger.debug("delete called. Stopping servers.")
-            if unix:
-                return self.stop_unix_server()
-            else:
-                return self.stop_server()    
+            self._logger.debug("Delete called. Stopping servers.")
+            return self.stop_server(),200
         except Exception as e:
             self._logger.error(e)
             return {'status': EXCEPTION,'details':e.__repr__()}, 200
         
 
-    def stop_server(self):
+    def stop_server(self)->Status:
         instance_id=self.get_compute_instance_id()
         self._logger.debug("Instance ID of stopped server:%s. Now stopping...", instance_id)
         r = client.stop_instances(InstanceIds=[instance_id])
@@ -100,14 +100,15 @@ class Services(Resource):
         for instance in r["StoppingInstances"]:
             code=instance["CurrentState"]["Code"]
             self._logger.debug("Instance state code of %s:%d", instance_id, code)
-            return {'status': code}, 200
+            return {'status_code': code}
 
     
-    def start_server(self)->number:
+    def start_server(self)->Status:
         self._logger.debug("Starting servers....")
-        if self.check_server_status() == True:
+        status:Status = self.check_server_status()
+        if status["status_code"] == RUNNING:
             self._logger.debug("Servers were already started....")
-            return RUNNING
+            return {"status_code":RUNNING, "ip": self.get_server_IP()}
         instance_id=self.get_compute_instance_id()
         self._logger.debug("Instance ID of newly started server:%s", instance_id)
         r = client.start_instances(InstanceIds=[instance_id])
@@ -123,21 +124,30 @@ class Services(Resource):
                 self._logger.debug("Instance status of %s:%s", instance_id, instance_status_code)
                 if instance_status_code=='ok':
                     self._logger.debug("Returning RUNNING")
-                    return RUNNING
+                    return {"status_code":RUNNING, "ip":self.get_server_IP()}
         self._logger.debug("Returning PENDING")
-        return PENDING
+        return {"status_code":PENDING}
 
 
 
-    def check_server_status(self)->number:
+    def check_server_status(self)->Status:
         instance_id=self.get_compute_instance_id()
+        IP:string = self.get_server_IP()
         r = client.describe_instance_status(InstanceIds=[instance_id])
         for instance_status in r["InstanceStatuses"]:
-            if (instance_status['InstanceId'] == instance_id) and (instance_status["InstanceState"]["Code"] == 16):
-                self._logger.debug("server state returns " + str(RUNNING))
-                return RUNNING
+            if (instance_status['InstanceId'] == instance_id):
+                self._logger.debug("server state returns " + str(instance_status["InstanceState"]["Code"]))
+                return {"status_code":instance_status["InstanceState"]["Code"], "ip":IP}
         self._logger.debug("server state returns " + str(UNKNOWN))
-        return UNKNOWN
+        return {"status_code":UNKNOWN}
+
+    def get_server_IP(self)->string:
+        if(self._IP == None):
+            r = client.describe_instances(InstanceIds=[self.get_compute_instance_id()])
+            if (len(r["Reservations"]) ==1) and (len(r["Reservations"][0]["Instances"]) ==1):
+                if 'PublicIpAddress' in r["Reservations"][0]["Instances"][0]:
+                    self._IP=r["Reservations"][0]["Instances"][0]['PublicIpAddress']
+        return self._IP
 
     def get_compute_instance_id(self)->string:
         return 'i-0a3774d4c3e971e64'

@@ -1,1 +1,2 @@
-30 23 * * * smarcsoft /home/smarcsoft/PortfolioManager/aws/run_remotely.sh --config config/controller_us.json
+30 23 * * * /home/smarcsoft/PortfolioManager/aws/run_update.sh --config config/controller_us.json
+@reboot /home/smarcsoft/PortfolioManager/frontend/api/runapi.sh

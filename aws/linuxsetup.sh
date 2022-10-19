@@ -8,10 +8,13 @@ echo "Base directory set to $PMBASEDIR"
 . $PMBASEDIR/aws/vars.sh
 CONF_FILE=$PMBASEDIR/backend/config/pm.conf
 echo "Creating python virtual environment..."
+CWD=$(pwd)
+cd $PMBASEDIR
 python3.10 -m venv smarcsoft
 source smarcsoft/bin/activate
 echo "Make 3.10 the default python"
 ln -fs /usr/local/bin/python3.10 smarcsoft/bin/python3
+cd $CWD
 echo "Upgrading pip..."
 python -m pip install --upgrade pip
 echo "Installing EOD..."

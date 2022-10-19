@@ -5,6 +5,12 @@ import { Console } from './Console';
 
 
 interface ServerStatus{
+  status_code: number,
+  message: string,
+  ip:string
+}
+
+interface SystemStatus{
   status: number,
   details: string
 }
@@ -17,7 +23,9 @@ const PENDING:number = 0;
 const RUNNING:number = 16;
 const NOT_KNOWN:number  = -1;
 
-const SERVICES_URL='http://44.211.192.23:5000/services'
+//const SERVICES_URL='http://44.211.192.23:5000/services'
+const SERVICES_URL='http://127.0.0.1:5000/services'
+const JUPYTER_SERVICES_URL='http://127.0.0.1:5000/jupyter'
 
 const appTheme: PartialTheme = {
   palette: {
@@ -59,6 +67,7 @@ export class App extends Component<{}, {console_text:string}> {
   stop_checked:boolean = false;
   launch_disabled:boolean = true;
   launch_checked:boolean = false;
+  compute_ip:string = "";
 
   constructor(props: {})
   {
@@ -69,6 +78,7 @@ export class App extends Component<{}, {console_text:string}> {
     this.cursorline = 0;
     this.stopPM = this.stopPM.bind(this);
     this.startPM = this.startPM.bind(this);
+    this.launchPM = this.launchPM.bind(this);
   }
   render() {
     return (
@@ -104,7 +114,7 @@ export class App extends Component<{}, {console_text:string}> {
     let st = await this.stop_compute();
     this.button_states_on_status(st);
     this.addlineWithStatus(st);
-    if((st.status === SHUTTING_DOWN ) || (st.status === STOPPING))
+    if((st.status_code === SHUTTING_DOWN ) || (st.status_code === STOPPING))
     {
       st = await this.wait_for_stop();
       this.addlineWithStatus(st)
@@ -115,8 +125,8 @@ export class App extends Component<{}, {console_text:string}> {
 
   async addlineWithStatus(status:ServerStatus)
   {
-    console.log("print status "+status.status+"...")
-    switch(status.status)
+    console.log("print status "+status.status_code+"...")
+    switch(status.status_code)
     {
       case NOT_KNOWN:
       case TERMINATED:
@@ -140,8 +150,8 @@ export class App extends Component<{}, {console_text:string}> {
 
   async button_states_on_status(st:ServerStatus)
   {
-    console.log("Updating button states...("+st.status+")")
-    switch(st.status)
+    console.log("Updating button states...("+st.status_code+")")
+    switch(st.status_code)
     {
       case NOT_KNOWN:
       case TERMINATED:
@@ -179,6 +189,9 @@ export class App extends Component<{}, {console_text:string}> {
       this.clearconsole();
       this.addline("Starting compute server...");
       await this.start_infrastructure();
+      this.addline("Launching financial data science platform...")
+      await this.start_jupyter_server();
+      this.addline("Launched!")
     }
     catch(e)
     {
@@ -187,7 +200,10 @@ export class App extends Component<{}, {console_text:string}> {
   }
 
   launchPM():void {
-    window.location.href="http://pm.smarcsoft.com/tree";
+    if(this.compute_ip !== ""){
+      console.log("Redirecting to http://"+this.compute_ip+":9999/tree");
+      window.location.href="http://"+this.compute_ip+":9999/tree";
+    }
   }
 
   componentDidMount(): void {
@@ -210,6 +226,11 @@ export class App extends Component<{}, {console_text:string}> {
       let st:ServerStatus = await this.get_server_status();
       this.button_states_on_status(st);
       this.addlineWithStatus(st);
+      if(st.status_code === RUNNING)
+      {
+        this.compute_ip = st.ip;
+        console.log("Compute server IP: " + this.compute_ip);
+      } 
     }
   catch(e)
   {
@@ -222,42 +243,56 @@ export class App extends Component<{}, {console_text:string}> {
 
   async start_infrastructure():Promise<ServerStatus>
   {
-    this.button_states_on_status({status:RUNNING, details:""}); //to disable the start button as soon as pressed
+    this.button_states_on_status({status_code:RUNNING, message:"", ip:""}); //to disable the start button as soon as pressed
     let ss:ServerStatus = await this.start_compute();
     this.button_states_on_status(ss);
     // Check if started
     // Wait for the infrastructure to startup for 5 times 5 seconds
-    if((ss.status === NOT_KNOWN) || (ss.status === PENDING))
+    if((ss.status_code === NOT_KNOWN) || (ss.status_code === PENDING))
     {
       this.addlineWithStatus(ss);
-      console.log("Waiting for start completion...("+ss.status+")");
+      console.log("Waiting for start completion...("+ss.status_code+")");
       ss=await this.wait_for_start();
       this.addlineWithStatus(ss);
       this.button_states_on_status(ss);
       return ss;
     }
-    throw new Error("Infrastructure could not be started. Code " + ss.status+". Details:"+ss.details);
+    throw new Error("Infrastructure could not be started. Code " + ss.status_code+". Details:"+ss.message);
+  }
+
+  async start_jupyter_server():Promise<SystemStatus>
+  {
+    console.log("sending POST "+JUPYTER_SERVICES_URL);
+    const response =  await fetch(JUPYTER_SERVICES_URL,{method:'POST'});
+    if(response.ok){
+      console.log("response ok");
+      let myjson = await response.json()
+      return myjson as Promise<SystemStatus>
+    }
+    else{
+      throw new Error("Could not start data science platform...");
+    }
   }
 
   async wait_for_start():Promise<ServerStatus>
   {
-    let ss:ServerStatus={status:NOT_KNOWN, details:""};
+    let ss:ServerStatus={status_code:NOT_KNOWN, message:"", ip:""};
 
     for(let i=1;i<=5;i++)
     {
       ss = await this.get_server_status();
-      if((ss.status === NOT_KNOWN) || (ss.status === PENDING))
+      if((ss.status_code === NOT_KNOWN) || (ss.status_code === PENDING))
       {
-        console.log("Waiting for start completion...("+ss.status+")");
+        console.log("Waiting for start completion...("+ss.status_code+")");
         await new Promise( resolve => setTimeout(resolve, 5000) );
       }
       else
       {
-        console.log("Quitting wait for start completion loop with status "+ss.status);
+        console.log("Quitting wait for start completion loop with status "+ss.status_code);
         break;
       }
     }
-    switch(ss.status)
+    switch(ss.status_code)
     {
       case NOT_KNOWN:
       case SHUTTING_DOWN:// shutting down
@@ -265,51 +300,55 @@ export class App extends Component<{}, {console_text:string}> {
       case STOPPING:// stopping
       case STOPPED:// stopped
         // Infrastructure could not be started for some reason
-        console.log("wait_for_start is still stopped|not known| shutting down|terminated| stopping ("+ss.status+"). Exception raised ("+ss.status+")");
-        throw new Error("Infrastructure could not be started ("+ ss.status+")");
+        console.log("wait_for_start is still stopped|not known| shutting down|terminated| stopping ("+ss.status_code+"). Exception raised ("+ss.status_code+")");
+        throw new Error("Infrastructure could not be started ("+ ss.status_code+")");
       case PENDING: //Infrastructure is still pending
-      console.log("wait_for_start is still pending. Exception raised ("+ss.status+")");
+      console.log("wait_for_start is still pending. Exception raised ("+ss.status_code+")");
         throw new Error("Infrastructure is still in pending state. Giving up...");
       case RUNNING://running
-        console.log("wait_for_start returns RUNNING ("+ss.status+")");
+        // Store the compute server IP address
+        console.log("Updating compute server IP address: " + ss.ip);
+        this.compute_ip = ss.ip;
+        console.log("wait_for_start returns RUNNING ("+ss.status_code+")");
         return ss;
     }
-    throw new Error("Could not start infrastructure. Status code:"+ ss.status);
+    throw new Error("Could not start infrastructure. Status code:"+ ss.status_code);
   }
 
 
   async wait_for_stop():Promise<ServerStatus>
   {
     console.log("wait for stop completion")
-    let ss:ServerStatus={status:NOT_KNOWN, details:""};
+    let ss:ServerStatus={status_code:NOT_KNOWN, message:"", ip:""};
 
     for(let i=1;i<=60;i++) // waits for up to 5 minutes
     {
       let ss = await this.get_server_status();
-      if((ss.status === STOPPING) || (ss.status === SHUTTING_DOWN) || (ss.status=== NOT_KNOWN))
+      if((ss.status_code === STOPPING) || (ss.status_code === SHUTTING_DOWN) || (ss.status_code=== NOT_KNOWN))
       {
-        console.log("STOPPING|SHUTTING_DOWN ("+ss.status+")")
+        console.log("STOPPING|SHUTTING_DOWN ("+ss.status_code+")")
         await new Promise( resolve => setTimeout(resolve, 5000) );
       }
       else
       {
-        console.log("quitting wait loop with statsus "+ss.status)
+        console.log("quitting wait loop with statsus "+ss.status_code)
         break;
       }
     }
-    switch(ss.status)
+    switch(ss.status_code)
     {
       case RUNNING:
       case SHUTTING_DOWN:// shutting down
       case STOPPING:// stopping
-        throw new Error("Infrastructure could not be stopped ("+ ss.status+")");
+        throw new Error("Infrastructure could not be stopped ("+ ss.status_code+")");
       case PENDING: //Infrastructure is still pending
         throw new Error("Infrastructure is still in pending state. Giving up...");
       case STOPPED:
       case NOT_KNOWN:
+        this.compute_ip="";
         return ss;
     }
-    throw new Error("Could not stop infrastructure. Status code:"+ ss.status);
+    throw new Error("Could not stop infrastructure. Status code:"+ ss.status_code);
   }
 
 

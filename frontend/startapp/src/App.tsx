@@ -1,5 +1,5 @@
-import React, { Component } from 'react';
-import { ThemeProvider, PartialTheme, Stack, Text, IStackItemStyles, removeDirectionalKeyCode, CompoundButton, IStackTokens } from '@fluentui/react';
+import React from 'react';
+import { ThemeProvider, PartialTheme, Stack, CompoundButton, IStackTokens } from '@fluentui/react';
 import './App.css';
 import { Console } from './Console';
 
@@ -102,7 +102,7 @@ export class App extends React.Component<{}, {console_text:string}> {
     let st = await this.stop_compute();
     this.button_states_on_status(st);
     this.addlineWithStatus(st);
-    if((st.status == SHUTTING_DOWN ) || (st.status == STOPPING))
+    if((st.status === SHUTTING_DOWN ) || (st.status === STOPPING))
     {
       st = await this.wait_for_stop();
       this.addlineWithStatus(st)
@@ -176,7 +176,7 @@ export class App extends React.Component<{}, {console_text:string}> {
     try{
       this.clearconsole();
       this.addline("Starting compute server...");
-      let st = await this.start_infrastructure();
+      await this.start_infrastructure();
     }
     catch(e)
     {
@@ -225,7 +225,7 @@ export class App extends React.Component<{}, {console_text:string}> {
     this.button_states_on_status(ss);
     // Check if started
     // Wait for the infrastructure to startup for 5 times 5 seconds
-    if((ss.status == NOT_KNOWN) || (ss.status == PENDING))
+    if((ss.status === NOT_KNOWN) || (ss.status === PENDING))
     {
       this.addlineWithStatus(ss);
       console.log("Waiting for start completion...("+ss.status+")");
@@ -244,7 +244,7 @@ export class App extends React.Component<{}, {console_text:string}> {
     for(let i=1;i<=5;i++)
     {
       ss = await this.get_server_status();
-      if((ss.status == NOT_KNOWN) || (ss.status == PENDING))
+      if((ss.status === NOT_KNOWN) || (ss.status === PENDING))
       {
         console.log("Waiting for start completion...("+ss.status+")");
         await new Promise( resolve => setTimeout(resolve, 5000) );
@@ -284,7 +284,7 @@ export class App extends React.Component<{}, {console_text:string}> {
     for(let i=1;i<=60;i++) // waits for up to 5 minutes
     {
       let ss = await this.get_server_status();
-      if((ss.status == STOPPING) || (ss.status == SHUTTING_DOWN) || (ss.status== NOT_KNOWN))
+      if((ss.status === STOPPING) || (ss.status === SHUTTING_DOWN) || (ss.status=== NOT_KNOWN))
       {
         console.log("STOPPING|SHUTTING_DOWN ("+ss.status+")")
         await new Promise( resolve => setTimeout(resolve, 5000) );
@@ -341,17 +341,17 @@ export class App extends React.Component<{}, {console_text:string}> {
   clearconsole()
   {
     //this.state={lines:["", "", "", "", ""]};
-    this.state={console_text:""};
+    //this.state={console_text:""};
     this.currentline = 0;
-    this.setState(this.state);
+    this.setState({console_text:""});
   }
 
   addline(line:string)
   {
-    this.state={console_text:this.state.console_text+"\n"+line};
+    // this.state={console_text:this.state.console_text+"\n"+line};
  //   this.state.lines[this.currentline]=line;
   //  this.cursorline = this.currentline;
-    this.setState(this.state); // Triggers the component rendering and its children
+    this.setState({console_text:this.state.console_text+"\n"+line}); // Triggers the component rendering and its children
     this.currentline++;
   }
 

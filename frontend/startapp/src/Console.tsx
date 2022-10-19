@@ -1,18 +1,16 @@
 import React from 'react';
-import { ThemeProvider, PartialTheme, Stack, Text, IStackItemStyles, removeDirectionalKeyCode, TextField } from '@fluentui/react';
+import { Stack, TextField } from '@fluentui/react';
 import './App.css';
-import { collapseTextChangeRangesAcrossMultipleVersions } from 'typescript';
-import { throws } from 'assert';
 
 //export class Console extends React.Component <{lines:string[], currentline:number}>{
 export class Console extends React.Component <{text:string}>{
 
     //constructor(props: { lines: string[], currentline:0 } | Readonly<{ lines: string[], currentline:0 }>)
-    constructor(props: { text: string} | Readonly<{ text: string}>)
-    {
-      super(props)
-      //let lines = ["Checking infrastructure...", "", "", "", ""]
-    }
+    // constructor(props: { text: string} | Readonly<{ text: string}>)
+    // {
+    //   super(props)
+    //   //let lines = ["Checking infrastructure...", "", "", "", ""]
+    // }
     render() {
       return (
           <Stack className='code'>

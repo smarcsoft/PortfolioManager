@@ -17,5 +17,11 @@ switch ($server)
         Write-Host "Connecting to the scheduling server"
         Invoke-Expression "ssh -o StrictHostKeyChecking=no -i C:\Users\sebma\OneDrive\dev\aws\$keyfile $($username)@$($dns)" 
     }
+    "session"
+    {
+        $dns="ec2-44-212-10-174.compute-1.amazonaws.com"
+        Write-Host "Connecting to the session server"
+        Invoke-Expression "ssh -o StrictHostKeyChecking=no -i C:\Users\sebma\OneDrive\dev\aws\PortfolioManager.pem $($username)@$($dns)" 
+    }
 }
 

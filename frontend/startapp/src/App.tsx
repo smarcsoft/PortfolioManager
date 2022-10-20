@@ -191,7 +191,7 @@ export class App extends Component<{}, {console_text:string}> {
       await this.addline("Launching financial data science platform...");
       // Wait 15 seconds, the time usually needed by AWS to accept incoming connections.
       await new Promise( resolve => setTimeout(resolve, 15000) );
-      let ss:SystemStatus = await this.start_jupyter_server();
+      await this.start_jupyter_server();
       await this.addline("Launched!");
       this.button_states_on_status(PLATFORM_STARTED);
     }

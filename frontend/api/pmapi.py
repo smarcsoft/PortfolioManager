@@ -133,11 +133,39 @@ class Services(Resource):
     def check_server_status(self)->Status:
         instance_id=self.get_compute_instance_id()
         IP:string = self.get_server_IP()
+        code = UNKNOWN
         r = client.describe_instances(InstanceIds=[instance_id])
         if (len(r["Reservations"]) ==1) and (len(r["Reservations"][0]["Instances"]) ==1):
             if 'State' in r["Reservations"][0]["Instances"][0]:
-                return {"status_code":r["Reservations"][0]["Instances"][0]["State"]["Code"]}
-        return {"status_code":UNKNOWN}
+                code=r["Reservations"][0]["Instances"][0]["State"]["Code"]
+                if(code == RUNNING):
+                    # Check the detailed instance status code to make sure it is accepting connections
+                    self._logger.debug("Instance code is running. Checking status details")
+                    status_details = client.describe_instance_status(InstanceIds=[instance_id])
+                    if((len(status_details["InstanceStatuses"]) == 1) and 
+                       (status_details["InstanceStatuses"][0]["InstanceState"]["Code"] == RUNNING) and 
+                        (len(status_details["InstanceStatuses"][0]["InstanceStatus"]["Details"]) ==1) and 
+                        (len(status_details["InstanceStatuses"][0]["SystemStatus"]["Details"])==1)):
+                        #Check instance status
+                        ist:bool = (status_details["InstanceStatuses"][0]["InstanceStatus"]["Details"][0]["Status"] == "passed")
+                        if(ist): 
+                            self._logger.debug("Instance Status passed") 
+                        else:  
+                            self._logger.debug("Instance Status NOT passed")
+                        #Check system status
+                        sst:bool = (status_details["InstanceStatuses"][0]["SystemStatus"]["Details"][0]["Status"] == "passed")
+                        if(sst): 
+                            self._logger.debug("System Status passed") 
+                        else:  
+                            self._logger.debug("System Status NOT passed")
+                        if(ist and sst):
+                            code = RUNNING
+                        else:
+                            code = PENDING
+                    else:
+                        code = PENDING
+                
+        return {"status_code":code, "ip":IP}
 
     def get_server_IP(self)->string:
         if(self._IP == None):

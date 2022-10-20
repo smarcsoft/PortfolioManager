@@ -119,7 +119,7 @@ export class App extends Component<{}, {console_text:string}> {
 
   async addlineWithStatus(status:ServerStatus)
   {
-    console.log("print status "+status.status_code+"...")
+    console.log("Status:"+status.status_code+"...")
     switch(status.status_code)
     {
       case NOT_KNOWN:
@@ -188,12 +188,12 @@ export class App extends Component<{}, {console_text:string}> {
       await this.clearconsole();
       await this.addline("Starting compute server...");
       await this.start_infrastructure();
-      await this.addline("Launching financial data science platform...")
+      await this.addline("Launching financial data science platform...");
       // Wait 15 seconds, the time usually needed by AWS to accept incoming connections.
       await new Promise( resolve => setTimeout(resolve, 15000) );
       let ss:SystemStatus = await this.start_jupyter_server();
-      await this.addline("Launched!")
-      this.button_states_on_status(ss.status)
+      await this.addline("Launched!");
+      this.button_states_on_status(PLATFORM_STARTED);
     }
     catch(e)
     {

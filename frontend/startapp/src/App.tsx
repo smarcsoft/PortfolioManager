@@ -144,11 +144,9 @@ export class App extends Component<{}, {console_text:string}> {
 
   async button_states_on_status(server_status_code:number, system_status_code:number)
   {
-    console.log("Updating button states...("+server_status_code+")")
-    if(system_status_code = RUNNING){
+    console.log("Updating button states...(server:"+server_status_code+", system:"+system_status_code+")")
+    if(system_status_code === RUNNING){
       server_status_code = PLATFORM_STARTED
-    } else{
-      server_status_code = RUNNING
     }
 
     switch(server_status_code)
@@ -200,7 +198,7 @@ export class App extends Component<{}, {console_text:string}> {
       await this.start_jupyter_server();
       await new Promise( resolve => setTimeout(resolve, 5000) ); // Wait 5 seconds, time for the jupyter server to start correctly.
       let st = await this.get_jupyter_status();
-      if(st.status == RUNNING)
+      if(st.status === RUNNING)
       {
         await this.addline("Launched!");
         this.button_states_on_status(PLATFORM_STARTED, RUNNING);
@@ -357,7 +355,7 @@ export class App extends Component<{}, {console_text:string}> {
 
     for(let i=1;i<=60;i++) // waits for up to 5 minutes
     {
-      let ss = await this.get_server_status();
+      ss = await this.get_server_status();
       if((ss.status_code === STOPPING) || (ss.status_code === SHUTTING_DOWN) || (ss.status_code=== NOT_KNOWN))
       {
         console.log("STOPPING|SHUTTING_DOWN ("+ss.status_code+")")
@@ -365,7 +363,7 @@ export class App extends Component<{}, {console_text:string}> {
       }
       else
       {
-        console.log("quitting wait loop with statsus "+ss.status_code)
+        console.log("quitting stop wait loop with status "+ss.status_code)
         break;
       }
     }

@@ -1,5 +1,5 @@
-# AWSW Linux one time preparation
-## To install python 3.10:
+# AWS Linux one time preparation
+## To install python 3.10 on the compute servers:
 sudo yum install sqlite-devel.x86_64 #Required by jupyter-lab
 sudo yum install bzip2-devel  #Required for pandas 
 sudo yum -y groupinstall "Development Tools"
@@ -14,10 +14,10 @@ sudo make altinstall
 Check the installed version:
 python3.10 --version
 
-## To install pip:
+### To install pip:
 sudo yum install python-pip
 
-## To install the SQL Server ODBC drivers:
+### To install the SQL Server ODBC drivers:
 sudo su
 curl https://packages.microsoft.com/config/rhel/6/prod.repo > /etc/yum.repos.d/mssql-release.repo
 curl https://packages.microsoft.com/config/rhel/7/prod.repo > /etc/yum.repos.d/mssql-release.repo
@@ -25,12 +25,25 @@ curl https://packages.microsoft.com/config/rhel/8/prod.repo > /etc/yum.repos.d/m
 exit
 sudo yum remove unixODBC-utf16 unixODBC-utf16-devel #to avoid conflicts
 sudo ACCEPT_EULA=Y yum install -y msodbcsql17
-### optional: for bcp and sqlcmd
+#### optional: for bcp and sqlcmd
 sudo ACCEPT_EULA=Y yum install -y mssql-tools
 echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
 source ~/.bashrc
-#### optional: for unixODBC development headers
+##### optional: for unixODBC development headers
 sudo yum install -y unixODBC-devel
+
+## To install python 3.10 on the scheduling server:
+sudo apt update && sudo apt upgrade
+sudo apt install build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev wget libbz2-dev
+wget https://www.python.org/ftp/python/3.10.0/Python-3.10.0.tgz
+tar -xf Python-3.10.*.tgz
+cd Python-3.10.*/
+./configure --enable-optimizations
+make -j 4
+sudo make altinstall
+Check result with python3.10 --version
+cd ..;sudo rm -rf Python-3.10.0 Python-3.10.0.tgz
+
 
 
 # Using linux and python to run the stuff
@@ -49,6 +62,7 @@ start_instance.sh: This is the master scripts. It starts the compute server if n
 run_update.sh: Connects to a compute server to run the update process. This is the script executed by the daily crontab
 run_jupiter.sh: Connects to a compute server to run the jupiter server.
 run.sh: runs the python update process.
+restart_proxy.sh: Restarts the reverse proxy
 
 ## run.sh
 Main run script able to run the update process locally. Prefer run_update.sh over run.sh.

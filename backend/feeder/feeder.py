@@ -3,6 +3,7 @@ import sys
 import os
 from xmlrpc.client import boolean
 sys.path.append(os.getcwd())
+sys.path.append(os.path.join(os.getcwd(),'..','utils'))
 import argparse
 from dataclasses import field
 from decimal import Decimal

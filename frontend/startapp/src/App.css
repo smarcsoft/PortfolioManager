@@ -1,0 +1,43 @@
+.App {
+  text-align: center;
+}
+
+body {
+  background-color: rgb(71,71,71)
+}
+/*
+.shadow {
+  margin:auto;
+  margin-top:50px;
+  padding:10px;
+  background-color: black;
+  box-shadow:5px 5px 5px rgb(102, 102, 102);
+}*/
+
+@keyframes cursor-blink {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 100;
+    background-color: #ffffff;
+  }
+}
+
+.cursor::after {
+  content: "";
+  width: 12px;
+  height: 20px;
+  background: #ffffff;
+  display: inline-block;
+  animation: cursor-blink 1.5s steps(2) infinite;
+}
+
+.start_button{
+  background-color: darkgreen;
+}
+
+.code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  border-style: none;
+}

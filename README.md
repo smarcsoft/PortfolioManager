@@ -7,6 +7,26 @@ controlFeedConfig: utility to generate the configuration of the controlFeed
 ### config
 Contains all configurations files for the backend to run
 
+# Architecture
+3 servers are involved:
+. The session manager which runs a react webapp managing user sessions and able to start/stop/run the infrastructure.
+. The compute server which runs the jupiter notebooks and the database update process.
+. The SQL Server database server, keeping track of the database update processes.
+
+## Session Manager
+It runs:
+. A REST API to start/stop the underlying infrastructure
+. A REACT "startapp" which provides the user interface in front of the API
+### REST API
+This in happening in frontend/api. Read the README there.
+### Startapp
+This is happening in fronend/startapp. Read the README there.
+
+## Compute server
+It runs jupyter server.
+This is happening in frontend/lab.
+
+
 
 # TODOs:
 ## Must do

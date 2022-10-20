@@ -10,5 +10,7 @@ source $ROOTDIR/smarcsoft/bin/activate
 
 export PYTHONPATH="$PMBASEDIR/backend/api"
 export DB_LOCATION="$PMBASEDIR/backend/db"
-echo "Starting jupiter server...."
-jupyter server --notebook-dir=$PMBASEDIR/frontend/lab/notebooks
+echo "Starting jupiter lab...."
+
+jupyter notebook --notebook-dir=$PMBASEDIR/frontend/lab/notebooks
+

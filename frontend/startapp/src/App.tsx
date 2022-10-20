@@ -106,13 +106,13 @@ export class App extends Component<{}, {console_text:string}> {
     await this.clearconsole();
     await this.addline("Stopping compute server")
     let st = await this.stop_compute();
-    this.button_states_on_status(st.status_code);
+    this.button_states_on_status(st.status_code, NOT_KNOWN);
     this.addlineWithStatus(st);
     if((st.status_code === SHUTTING_DOWN ) || (st.status_code === STOPPING))
     {
       st = await this.wait_for_stop();
       this.addlineWithStatus(st)
-      this.button_states_on_status(st.status_code);
+      this.button_states_on_status(st.status_code, NOT_KNOWN);
     }
   }
 
@@ -142,10 +142,16 @@ export class App extends Component<{}, {console_text:string}> {
     }
   }
 
-  async button_states_on_status(status_code:number)
+  async button_states_on_status(server_status_code:number, system_status_code:number)
   {
-    console.log("Updating button states...("+status_code+")")
-    switch(status_code)
+    console.log("Updating button states...("+server_status_code+")")
+    if(system_status_code = RUNNING){
+      server_status_code = PLATFORM_STARTED
+    } else{
+      server_status_code = RUNNING
+    }
+
+    switch(server_status_code)
     {
       case NOT_KNOWN:
       case TERMINATED:
@@ -192,8 +198,19 @@ export class App extends Component<{}, {console_text:string}> {
       // Wait 15 seconds, the time usually needed by AWS to accept incoming connections.
       await new Promise( resolve => setTimeout(resolve, 15000) );
       await this.start_jupyter_server();
-      await this.addline("Launched!");
-      this.button_states_on_status(PLATFORM_STARTED);
+      await new Promise( resolve => setTimeout(resolve, 5000) ); // Wait 5 seconds, time for the jupyter server to start correctly.
+      let st = await this.get_jupyter_status();
+      if(st.status == RUNNING)
+      {
+        await this.addline("Launched!");
+        this.button_states_on_status(PLATFORM_STARTED, RUNNING);
+      }
+      else
+      {
+        await this.addline("Could not launch data science platform:" + st.details);
+        this.button_states_on_status(PLATFORM_STARTED, NOT_KNOWN);
+      }
+      
     }
     catch(e)
     {
@@ -226,12 +243,13 @@ export class App extends Component<{}, {console_text:string}> {
   {
     try{
       let st:ServerStatus = await this.get_server_status();
-      this.button_states_on_status(st.status_code);
+      this.button_states_on_status(st.status_code, NOT_KNOWN);
       this.addlineWithStatus(st);
       if(st.status_code === RUNNING)
       {
+        let ss:SystemStatus = await this.get_jupyter_status();
+        this.button_states_on_status(st.status_code, ss.status);
         this.compute_ip = st.ip;
-        console.log("Compute server IP: " + this.compute_ip);
       } 
     }
   catch(e)
@@ -245,9 +263,9 @@ export class App extends Component<{}, {console_text:string}> {
 
   async start_infrastructure():Promise<ServerStatus>
   {
-    this.button_states_on_status(PENDING); //to disable the start button as soon as pressed
+    this.button_states_on_status(PENDING, NOT_KNOWN); //to disable the start button as soon as pressed
     let ss:ServerStatus = await this.start_compute();
-    this.button_states_on_status(ss.status_code);
+    this.button_states_on_status(ss.status_code, NOT_KNOWN);
     // Check if started
     // Wait for the infrastructure to startup for 5 times 5 seconds
     if((ss.status_code === NOT_KNOWN) || (ss.status_code === PENDING))
@@ -256,7 +274,7 @@ export class App extends Component<{}, {console_text:string}> {
       console.log("Waiting for start completion...("+ss.status_code+")");
       ss=await this.wait_for_start();
       this.addlineWithStatus(ss);
-      this.button_states_on_status(ss.status_code);
+      this.button_states_on_status(ss.status_code, NOT_KNOWN);
       return ss;
     }
     throw new Error("Infrastructure could not be started. Code " + ss.status_code+". Details:"+ss.message);
@@ -273,6 +291,20 @@ export class App extends Component<{}, {console_text:string}> {
     }
     else{
       throw new Error("Could not start data science platform...");
+    }
+  }
+
+  async get_jupyter_status():Promise<SystemStatus>
+  {
+    console.log("sending GET "+JUPYTER_SERVICES_URL);
+    const response =  await fetch(JUPYTER_SERVICES_URL,{method:'GET'});
+    if(response.ok){
+      console.log("response ok");
+      let myjson = await response.json()
+      return myjson as Promise<SystemStatus>
+    }
+    else{
+      throw new Error("Could not get the status of the data science platform...");
     }
   }
 

@@ -1,4 +1,5 @@
 import argparse
+from doctest import COMPARISON_FLAGS
 import os
 import string
 import subprocess
@@ -14,6 +15,8 @@ from flask_cors import CORS
 import logging
 import logging.config
 import logging.handlers
+
+import requests
 sys.path.append(os.path.join(os.getcwd(),'..','..','utils'))
 from config import get_config
 
@@ -41,6 +44,8 @@ STOPPING=64
 STOPPED=80
 
 CONFIG_FILE="config/pmapi.conf"
+
+COMPUTE_INSTANCE="i-0a3774d4c3e971e64"
 
 api = Api(app)
 k=get_config("akey", configfile=CONFIG_FILE)
@@ -169,15 +174,19 @@ class Services(Resource):
 
     def get_server_IP(self)->string:
         if(self._IP == None):
-            r = client.describe_instances(InstanceIds=[self.get_compute_instance_id()])
-            if (len(r["Reservations"]) ==1) and (len(r["Reservations"][0]["Instances"]) ==1):
-                if 'PublicIpAddress' in r["Reservations"][0]["Instances"][0]:
-                    self._IP=r["Reservations"][0]["Instances"][0]['PublicIpAddress']
+            self._IP=get_ip(self.get_compute_instance_id())
         return self._IP
 
     def get_compute_instance_id(self)->string:
-        return 'i-0a3774d4c3e971e64'
+        return COMPUTE_INSTANCE
 
+
+def get_ip(instance_id:string)->string:
+    r = client.describe_instances(InstanceIds=[instance_id])
+    if (len(r["Reservations"]) ==1) and (len(r["Reservations"][0]["Instances"]) ==1):
+        if 'PublicIpAddress' in r["Reservations"][0]["Instances"][0]:
+            return r["Reservations"][0]["Instances"][0]['PublicIpAddress']
+    return None
 
 @app.route("/")
 class Jupyter(Resource):
@@ -185,6 +194,23 @@ class Jupyter(Resource):
     def __init__(self):
         self._logger = logging.getLogger('root')
         self._logger.debug("Logging initialized.")
+
+    def get(self):
+        '''
+        Returns if the jupyter server is up and running or not
+        '''
+        #Get the IP address of the jupyter server
+        try:
+            ip = get_ip(COMPUTE_INSTANCE)
+            if(ip == None):
+                return {'status': UNKNOWN, 'details':"Cannot get copmute server IP address."}
+            
+            page = requests.get("http://"+ip+":9999/tree")
+            if(page.status_code == 200):
+                return {'status': RUNNING}
+            return {'status': UNKNOWN, 'details':"Could not ping jupyter notebook. Status code returned:" + page.status_code}
+        except Exception as e:
+            return {'status': UNKNOWN, 'details':str(e)}
 
     def post(self):
         try:

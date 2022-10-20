@@ -133,12 +133,10 @@ class Services(Resource):
     def check_server_status(self)->Status:
         instance_id=self.get_compute_instance_id()
         IP:string = self.get_server_IP()
-        r = client.describe_instance_status(InstanceIds=[instance_id])
-        for instance_status in r["InstanceStatuses"]:
-            if (instance_status['InstanceId'] == instance_id):
-                self._logger.debug("server state returns " + str(instance_status["InstanceState"]["Code"]))
-                return {"status_code":instance_status["InstanceState"]["Code"], "ip":IP}
-        self._logger.debug("server state returns " + str(UNKNOWN))
+        r = client.describe_instances(InstanceIds=[instance_id])
+        if (len(r["Reservations"]) ==1) and (len(r["Reservations"][0]["Instances"]) ==1):
+            if 'State' in r["Reservations"][0]["Instances"][0]:
+                return {"status_code":r["Reservations"][0]["Instances"][0]["State"]["Code"]}
         return {"status_code":UNKNOWN}
 
     def get_server_IP(self)->string:

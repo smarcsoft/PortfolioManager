@@ -21,6 +21,7 @@ const STOPPING:number = 64;
 const STOPPED:number = 80;
 const PENDING:number = 0;
 const RUNNING:number = 16;
+const PLATFORM_STARTED:number = 65;
 const NOT_KNOWN:number  = -1;
 
 const SERVICES_URL='http://44.211.192.23:5000/services'
@@ -57,8 +58,6 @@ const stackTokens: IStackTokens = { childrenGap: 40 };
 
 //export class App extends React.Component<{}, {lines:string[]}> {
 export class App extends Component<{}, {console_text:string}> {
-  currentline: number;
-  cursorline: number;
   // Initial button states
   start_disabled:boolean = true;
   start_checked:boolean = false;
@@ -71,10 +70,7 @@ export class App extends Component<{}, {console_text:string}> {
   constructor(props: {})
   {
     super(props)
-//    this.state={lines:["Checking compute server...", "", "", "", ""]};
-    this.state={console_text:"Checking compute server..."}
-    this.currentline = 1;
-    this.cursorline = 0;
+    this.state={console_text:"Checking compute server..."};
     this.stopPM = this.stopPM.bind(this);
     this.startPM = this.startPM.bind(this);
     this.launchPM = this.launchPM.bind(this);
@@ -87,7 +83,6 @@ export class App extends Component<{}, {console_text:string}> {
             Smarcsoft Porfolio Management
           </Stack.Item>
           <Stack.Item align="center">
-            {/* <Console lines={this.state.lines} currentline={this.cursorline}/> */}
             <Console text={this.state.console_text}/>
             <Stack horizontal tokens={stackTokens}>
               <CompoundButton secondaryText="This is starting the underlying compute server." onClick={this.startPM} disabled={this.start_disabled} checked={this.start_checked}>
@@ -108,16 +103,16 @@ export class App extends Component<{}, {console_text:string}> {
 
   async stopPM():Promise<void> {
     console.log("stopPM called on " + this)
-    this.clearconsole();
-    this.addline("Stopping compute server")
+    await this.clearconsole();
+    await this.addline("Stopping compute server")
     let st = await this.stop_compute();
-    this.button_states_on_status(st);
+    this.button_states_on_status(st.status_code);
     this.addlineWithStatus(st);
     if((st.status_code === SHUTTING_DOWN ) || (st.status_code === STOPPING))
     {
       st = await this.wait_for_stop();
       this.addlineWithStatus(st)
-      this.button_states_on_status(st);
+      this.button_states_on_status(st.status_code);
     }
   }
 
@@ -130,27 +125,27 @@ export class App extends Component<{}, {console_text:string}> {
       case NOT_KNOWN:
       case TERMINATED:
       case STOPPED:
-        this.addline("Stopped")
+        await this.addline("Stopped")
         break;
       case SHUTTING_DOWN:
-        this.addline("Shutting down");
+        await this.addline("Shutting down");
         break;
       case STOPPING:
-        this.addline("Stopping... This can take a few minutes")
+        await this.addline("Stopping... This can take a few minutes")
         break;
       case PENDING:
-        this.addline("Pending...")
+        await this.addline("Pending...")
         break;
       case RUNNING:
-        this.addline("Running")
+        await this.addline("Running")
         break;
     }
   }
 
-  async button_states_on_status(st:ServerStatus)
+  async button_states_on_status(status_code:number)
   {
-    console.log("Updating button states...("+st.status_code+")")
-    switch(st.status_code)
+    console.log("Updating button states...("+status_code+")")
+    switch(status_code)
     {
       case NOT_KNOWN:
       case TERMINATED:
@@ -177,6 +172,11 @@ export class App extends Component<{}, {console_text:string}> {
         break;
       case RUNNING:
         console.log("RUNNING");
+        this.button_states(false,true,true,false, false, false);
+        this.setState(this.state);
+        break;
+      case PLATFORM_STARTED:
+        console.log("PLATFORM_STARTED");
         this.button_states(false,true,true,false, true, false);
         this.setState(this.state);
         break;
@@ -185,14 +185,15 @@ export class App extends Component<{}, {console_text:string}> {
 
   async startPM():Promise<void> {
     try{
-      this.clearconsole();
-      this.addline("Starting compute server...");
+      await this.clearconsole();
+      await this.addline("Starting compute server...");
       await this.start_infrastructure();
-      this.addline("Launching financial data science platform...")
+      await this.addline("Launching financial data science platform...")
       // Wait 15 seconds, the time usually needed by AWS to accept incoming connections.
       await new Promise( resolve => setTimeout(resolve, 15000) );
-      await this.start_jupyter_server();
-      this.addline("Launched!")
+      let ss:SystemStatus = await this.start_jupyter_server();
+      await this.addline("Launched!")
+      this.button_states_on_status(ss.status)
     }
     catch(e)
     {
@@ -225,7 +226,7 @@ export class App extends Component<{}, {console_text:string}> {
   {
     try{
       let st:ServerStatus = await this.get_server_status();
-      this.button_states_on_status(st);
+      this.button_states_on_status(st.status_code);
       this.addlineWithStatus(st);
       if(st.status_code === RUNNING)
       {
@@ -235,7 +236,7 @@ export class App extends Component<{}, {console_text:string}> {
     }
   catch(e)
   {
-    this.addline(""+e);
+    await this.addline(""+e);
   }
     
   }
@@ -244,9 +245,9 @@ export class App extends Component<{}, {console_text:string}> {
 
   async start_infrastructure():Promise<ServerStatus>
   {
-    this.button_states_on_status({status_code:RUNNING, message:"", ip:""}); //to disable the start button as soon as pressed
+    this.button_states_on_status(PENDING); //to disable the start button as soon as pressed
     let ss:ServerStatus = await this.start_compute();
-    this.button_states_on_status(ss);
+    this.button_states_on_status(ss.status_code);
     // Check if started
     // Wait for the infrastructure to startup for 5 times 5 seconds
     if((ss.status_code === NOT_KNOWN) || (ss.status_code === PENDING))
@@ -255,7 +256,7 @@ export class App extends Component<{}, {console_text:string}> {
       console.log("Waiting for start completion...("+ss.status_code+")");
       ss=await this.wait_for_start();
       this.addlineWithStatus(ss);
-      this.button_states_on_status(ss);
+      this.button_states_on_status(ss.status_code);
       return ss;
     }
     throw new Error("Infrastructure could not be started. Code " + ss.status_code+". Details:"+ss.message);
@@ -380,21 +381,18 @@ export class App extends Component<{}, {console_text:string}> {
   }
 
 
-  clearconsole()
+  async clearconsole()
   {
-    //this.state={lines:["", "", "", "", ""]};
-    //this.state={console_text:""};
-    this.currentline = 0;
-    this.setState({console_text:""});
+    console.log("clearconsole -> Current state:"+this.state.console_text);
+    await this.setState({console_text:""});
+    console.log("clearconsole -> New state:"+this.state.console_text);
   }
 
-  addline(line:string)
+  async addline(line:string)
   {
-    // this.state={console_text:this.state.console_text+"\n"+line};
- //   this.state.lines[this.currentline]=line;
-  //  this.cursorline = this.currentline;
-    this.setState({console_text:this.state.console_text+"\n"+line}); // Triggers the component rendering and its children
-    this.currentline++;
+    console.log("addline("+line+") -> Current state:"+this.state.console_text);
+    await this.setState({console_text:this.state.console_text+"\n"+line}); // Triggers the component rendering and its children
+    console.log("addline -> New state:"+this.state.console_text);
   }
 
   async get_server_status():Promise<ServerStatus>

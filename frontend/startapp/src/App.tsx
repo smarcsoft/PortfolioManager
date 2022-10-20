@@ -280,7 +280,7 @@ export class App extends Component<{}, {console_text:string}> {
   {
     let ss:ServerStatus={status_code:NOT_KNOWN, message:"", ip:""};
 
-    for(let i=1;i<=5;i++)
+    for(let i=1;i<=60;i++)
     {
       ss = await this.get_server_status();
       if((ss.status_code === NOT_KNOWN) || (ss.status_code === PENDING))

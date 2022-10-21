@@ -1,16 +1,20 @@
 from datetime import date, datetime
 from genericpath import exists
 import os
+import unittest
 import numpy as np
 import json
 from TimeSeries import fill, TimeSeries, PMException
 from Ticker import Ticker
+
+TimeSeriesCache = dict[str, TimeSeries] #fully qualifiedticker (as string), timeseries
 
 if 'DB_LOCATION' in os.environ:
     __default_dbbloc = os.environ['DB_LOCATION']
 else:
     __default_dbbloc = "backend/db"
 __dbloc = __default_dbbloc
+__cache = {}
 
 def init(dbloc = __default_dbbloc):
     global __dbloc
@@ -18,10 +22,24 @@ def init(dbloc = __default_dbbloc):
     if not exists(dbloc): raise PMException("Missing database at {location}".format(location=dbloc))
     __dbloc = dbloc
 
-def get_timeseries(full_ticker:str, datapoint_name:str, start_date:date=None, end_date:date=None, fill_method=fill.FORWARDFILL)->TimeSeries:
+def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
+    '''
+    Return the time series of a data point. 
+    Parameters:
+    full_ticker: concatenation of the ticker and country code
+    datapoint_name: Supported data points are:
+        . adjusted_close
+        . close
+        . high
+        . low
+        . open
+        . volume
+    '''
     global __dbloc
 
     try:
+        if use_cache and (full_ticker in __cache):
+            return __cache[full_ticker]
         # read it from the database
         (ticker, exchange) = full_ticker.split('.')
         name = datapoint_name
@@ -35,7 +53,11 @@ def get_timeseries(full_ticker:str, datapoint_name:str, start_date:date=None, en
             end_date = datetime.strptime(meta["last_date"], '%Y-%m-%d')
 
         # Create the time series intance to return
-        return TimeSeries(a, start_date.date(), end_date.date(), fill_method)
+        toreturn:TimeSeries =  TimeSeries(a, start_date.date(), end_date.date(), fill_method)
+        if use_cache:
+            __cache[full_ticker] = toreturn
+        return toreturn
+
     except FileNotFoundError:
         raise PMException("Could not find time series for ticker {full_ticker}".format(full_ticker = full_ticker))
 
@@ -47,15 +69,28 @@ def get_ticker(full_ticker:str)->Ticker:
         td = json.load(idf)
     return Ticker(type=td['Type'], code=td['Code'], isin=td['Isin'], name=td['Name'], country=td['Country'], exchange=td['Exchange'], currency=td['Currency'])
 
+
+class UnitTestData(unittest.TestCase):
+    def test_get_timeseries(self):
+        ts:TimeSeries = get_timeseries('GT.US', 'open')
+        print(ts)
+        ts2:TimeSeries = get_timeseries('GT.US', 'open')
+        print(ts2)
+        self.assertEqual(ts, ts2)
+        ts3:TimeSeries = ts.cutndays(date(2020,1,1), 10)
+        ts4:TimeSeries = ts.cut2dates(date(2020,1,1), date(2020,1,10))
+        self.assertEqual(ts3, ts4)
+
+    def test_get_ticker(self):
+        t:Ticker = get_ticker('GT.US')
+        self.assertEqual(t.code, 'GT')
+        self.assertEqual(t.country, 'USA')
+        self.assertEqual(t.currency, 'USD')
+        self.assertEqual(t.exchange,'NASDAQ')
+        self.assertEqual(t.isin, 'US3825501014')
+        self.assertEqual(t.name, 'Goodyear Tire & Rubber Co')
+        self.assertEqual(t.type, 'Common Stock')
+
 if __name__ == '__main__':
     init()
-    ts = get_timeseries('GT.US', "open")
-    print(ts)
-    print("First 10 days of Jan 2020")
-    ts1 = ts.cutndays(date(2020,1,1), 10)
-    print(ts1)
-    ts2 = ts.cut2dates(date(2020,1,1), date(2020,1,10))
-    print(ts2)
-    print(ts1==ts2)
-    t = get_ticker('GT.US')
-    print(t)
+    unittest.main()

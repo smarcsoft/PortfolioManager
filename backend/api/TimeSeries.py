@@ -2,13 +2,13 @@ from datetime import date, timedelta
 import types
 import numpy as np
 import pandas as pd
+from PMExceptions import PMException
 
 fill = types.SimpleNamespace()
 fill.FORWARDFILL = 1
 fill.BACKFILL = 2
 
-class PMException(Exception):
-    pass
+
 
 class TimeSeries:
 

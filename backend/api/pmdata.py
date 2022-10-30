@@ -39,8 +39,8 @@ def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARD
     global __dbloc
 
     try:
-        if use_cache and (full_ticker in __cache):
-            return __cache[full_ticker]
+        if use_cache and (full_ticker+"_"+datapoint_name in __cache):
+            return __cache[full_ticker+"_"+datapoint_name]
         # read it from the database
         (ticker, exchange) = full_ticker.split('.')
         name = datapoint_name
@@ -56,7 +56,7 @@ def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARD
         # Create the time series intance to return
         toreturn:TimeSeries =  TimeSeries(a, start_date.date(), end_date.date(), fill_method)
         if use_cache:
-            __cache[full_ticker] = toreturn
+            __cache[full_ticker+"_"+datapoint_name] = toreturn
         return toreturn
 
     except FileNotFoundError:

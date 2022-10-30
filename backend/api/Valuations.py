@@ -10,7 +10,7 @@ import pandas as pd
 from Ticker import Ticker
 from pmdata import get_timeseries
 
-DEFAULT_VALUATION_DATAPOINT='close'
+DEFAULT_VALUATION_DATAPOINT='adjusted_close'
 DEFAULT_CURRENCY='USD'
 
 class InstrumentValuator:
@@ -26,7 +26,7 @@ class PortfolioValuator:
     def __init__(self, portfolio:Portfolio) -> None:
         self.portfolio = portfolio
 
-    def get_valuations(self, start_date:date=None, end_date:date=None, ccy:str=DEFAULT_CURRENCY)->TimeSeries:
+    def get_valuations(self, start_date:date=None, end_date:date=None, dp_name=DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->TimeSeries:
         '''
         Values the portfolio and returns a time series of valuations.
         Parameters are:
@@ -34,20 +34,20 @@ class PortfolioValuator:
         end_date: Inclusive end date of the valuation period. If None, the portfolio will be valued up to the latest possible valuation date, which is the date to which we have prices for all positions of the portfolio.
         '''
         if(start_date == None):
-            start_date = self.get_start_date()
+            start_date = self.get_start_date(dp_name=dp_name)
         if(end_date == None):
-            end_date = self.get_end_date()
+            end_date = self.get_end_date(dp_name=dp_name)
         
         period:pd.DatetimeIndex = pd.date_range(start_date, end_date, freq='D')
         toreturn:ndarray = numpy.zeros((end_date - start_date).days+1)
         for i, d in enumerate(period):
-            toreturn[i]=self.get_valuation(start_date+timedelta(days=i),ccy)
-        return toreturn
+            toreturn[i]=self.get_valuation(start_date+timedelta(days=i), dpname=dp_name, ccy=ccy)
+        return TimeSeries(toreturn, start_date=start_date, end_date=end_date)
 
-    def get_valuation(self, valdate:date=None, ccy:str=DEFAULT_CURRENCY)->number:
+    def get_valuation(self, valdate:date=None, dpname:str = DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->number:
         portfolio_valuation:number = 0.0
         for instrument in self.portfolio.get_positions():
-            instrument_value:number = InstrumentValuator(instrument).get_valuation(valdate, self.portfolio._get_quantity(instrument))
+            instrument_value:number = InstrumentValuator(instrument).get_valuation(valdate, self.portfolio._get_quantity(instrument), dpname=dpname)
             portfolio_valuation = portfolio_valuation + instrument_value
         return portfolio_valuation
 
@@ -56,7 +56,7 @@ class PortfolioValuator:
         start_date:date = None
         for ticker in self.portfolio.get_positions():
             sd = get_timeseries(full_ticker=ticker.get_full_ticker(), datapoint_name=dp_name).get_start_date()
-            if((start_date == None) or (start_date > sd)):
+            if((start_date == None) or (start_date < sd)):
                 start_date = sd
         return start_date
 
@@ -76,14 +76,14 @@ class UnitTestPortfolio(unittest.TestCase):
         p.buy('MSFT', 10)
         p.buy('CSCO', 20)
         v:PortfolioValuator = PortfolioValuator(portfolio=p)
-        self.assertEqual(len(v.get_valuations(date.fromisoformat("2020-01-01"), date.fromisoformat('2020-12-31'))), (date.fromisoformat('2020-12-31') - date.fromisoformat("2020-01-01")).days+1)
+        self.assertEqual(v.get_valuations(date.fromisoformat("2020-01-01"), date.fromisoformat('2020-12-31')).size(), (date.fromisoformat('2020-12-31') - date.fromisoformat("2020-01-01")).days+1)
 
     def test_get_start_date(self):
         p:Portfolio = Portfolio()
         p.buy('MSFT', 10)
         p.buy('CSCO', 20)
         v:PortfolioValuator = PortfolioValuator(portfolio=p)
-        self.assertEqual(v.get_start_date(), datetime.strptime('1986-03-13', '%Y-%m-%d').date())
+        self.assertEqual(v.get_start_date(), datetime.strptime('1990-02-16', '%Y-%m-%d').date())
 
 
     def test_get_end_date(self):
@@ -92,6 +92,15 @@ class UnitTestPortfolio(unittest.TestCase):
         p.buy('CSCO', 20)
         v:PortfolioValuator = PortfolioValuator(portfolio=p)
         self.assertGreaterEqual(v.get_end_date(), datetime.strptime('2022-09-22', '%Y-%m-%d').date())
+
+    def test_dp(self):
+        p:Portfolio = Portfolio()
+        p.buy('MSFT', 1)
+        v:PortfolioValuator = PortfolioValuator(portfolio=p)
+        ts:TimeSeries = v.get_valuations(start_date=None, end_date=None, dp_name='close')
+        tsa:TimeSeries = v.get_valuations(start_date=None, end_date=None, dp_name='adjusted_close')
+        self.assertEqual(ts.size(), tsa.size())
+        self.assertLessEqual(tsa.get_full_time_series()[0], ts.get_full_time_series()[0])
 
 
 

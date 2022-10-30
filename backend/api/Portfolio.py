@@ -14,6 +14,12 @@ class Portfolio:
     '''
     def __init__(self) -> None:
         self.positions:Positions = {}
+
+    def get_positions(self) -> Positions:
+        '''
+        Returns the list of positions of the portfolio in a dictionary keyed my ticker.
+        '''
+        return self.positions
     
     def buy(self, ticker_code:str, quantity:number, exchange:Exchange=Exchange('NASDAQ','US'), type:str ='Common Stock',  isin:str="", name:str="", country:str="USA",  currency:str="USD" ):
         self._buy(Ticker(ticker_code, exchange, type,isin,name, country, currency), quantity)
@@ -47,6 +53,13 @@ class UnitTestPortfolio(unittest.TestCase):
         p.buy('MSFT', 30)
         self.assertEqual(p.get_quantity('MSFT'), 40)
         self.assertEqual(p.get_quantity('CSCO'), 20)
+
+    def test_positions(self):
+        p:Portfolio = Portfolio()
+        p.buy('MSFT', 10)
+        p.buy('CSCO', 20)
+        p.buy('MSFT', 30)
+        self.assertEqual(len(p.get_positions()),2)
 
     def test_sell_short(self):
         p:Portfolio = Portfolio()

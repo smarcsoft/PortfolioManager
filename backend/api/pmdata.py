@@ -34,6 +34,7 @@ def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARD
         . low
         . open
         . volume
+    Raises an exception if the time series cannot be loaded. Cannot return None.
     '''
     global __dbloc
 

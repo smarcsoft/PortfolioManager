@@ -70,6 +70,25 @@ class PortfolioValuator:
         return end_date
 
 
+class IndexValuator(PortfolioValuator):
+    def __init__(self, portfolio:Portfolio, base_date:date, base_value:number) -> None:
+        super().__init__(portfolio=portfolio)
+        self.base_date = base_date
+        self.base_value = base_value
+
+    def get_index_valuations(self, end_date:date=None, dp_name=DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->TimeSeries:
+        if(end_date == None):
+            end_date = self.get_end_date(dp_name=dp_name)
+        
+        period:pd.DatetimeIndex = pd.date_range(self.base_date, end_date, freq='D')
+        toreturn:ndarray = numpy.zeros((end_date - self.base_date).days+1)
+        toreturn[0]=self.base_value
+        for i, d in enumerate(period):
+            if(i==0): continue #Skip the first date since it is valued as base_value
+            toreturn[i]=toreturn[i-1] * self.get_valuation(self.base_date+timedelta(days=i), dpname=dp_name, ccy=ccy) / self.get_valuation(self.base_date+timedelta(days=i-1), dpname=dp_name, ccy=ccy)
+        return TimeSeries(toreturn, start_date=self.base_date, end_date=end_date)
+
+
 class UnitTestPortfolio(unittest.TestCase):
     def test_get_valuations(self):
         p:Portfolio = Portfolio()
@@ -101,6 +120,14 @@ class UnitTestPortfolio(unittest.TestCase):
         tsa:TimeSeries = v.get_valuations(start_date=None, end_date=None, dp_name='adjusted_close')
         self.assertEqual(ts.size(), tsa.size())
         self.assertLessEqual(tsa.get_full_time_series()[0], ts.get_full_time_series()[0])
+
+    def test_index_valuation(self):
+        p:Portfolio = Portfolio()
+        p.buy('MSFT', 10)
+        p.buy('CSCO', 20)
+        p.buy('MSCI', 30)
+        v:IndexValuator = IndexValuator(portfolio=p, base_date=date.fromisoformat("2010-01-01"), base_value=100)
+        print(v.get_index_valuations(end_date=date.fromisoformat("2021-12-31")).get_full_time_series())
 
 
 

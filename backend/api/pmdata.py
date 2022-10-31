@@ -7,7 +7,9 @@ import json
 from TimeSeries import fill, TimeSeries, PMException
 from Ticker import Ticker
 
-TimeSeriesCache = dict[str, TimeSeries] #fully qualifiedticker (as string), timeseries
+
+TimeSeriesCache = dict[str, TimeSeries] # FullyQualifiedTicker_DataPointName, timeseries
+TickerCache = dict[str, dict[str, Ticker]] # Dictionary of (market, dictionary of (symbol name, Ticker)) for quick lookup by name
 
 if 'DB_LOCATION' in os.environ:
     __default_dbbloc = os.environ['DB_LOCATION']
@@ -15,12 +17,37 @@ else:
     __default_dbbloc = "backend/db"
 __dbloc = __default_dbbloc
 __cache = {}
+__tickercache = {}
 
 def init(dbloc = __default_dbbloc):
     global __dbloc
     #check if the location is correct
     if not exists(dbloc): raise PMException("Missing database at {location}".format(location=dbloc))
     __dbloc = dbloc
+    __init_ticker_cache()
+
+
+def search(symbol_name:str, market:str='US', type:str = "Common Stock")->list[Ticker]:
+    if not __tickercache:
+        __init_ticker_cache(market)
+    if not __tickercache[market]:
+        __init_ticker_cache(market)
+    names = __tickercache[market].keys()
+    # Find the name in names
+    matching_names = [name for name in names if symbol_name.lower() in name.lower()]
+    return [__tickercache[market][name] for name in matching_names if __tickercache[market][name].type.lower()==type.lower()]
+
+def __init_ticker_cache(exchange:str='US'):
+    if exchange not in __tickercache:
+        __tickercache[exchange] = {}
+    path = os.path.join(__dbloc, exchange)
+    # Read all directory entries as tickers
+    for ticker in os.listdir(path=path):
+        # Read symbol name
+        with open(os.path.join(path, ticker, 'id')) as idfile:
+            identity = json.load(idfile)
+            __tickercache[exchange][identity["Name"]] = Ticker(ticker, exchange, isin=identity["Isin"], name=identity["Name"], type=identity["Type"])
+
 
 def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
     '''
@@ -74,9 +101,7 @@ def get_ticker(full_ticker:str)->Ticker:
 class UnitTestData(unittest.TestCase):
     def test_get_timeseries(self):
         ts:TimeSeries = get_timeseries('GT.US', 'open')
-        print(ts)
         ts2:TimeSeries = get_timeseries('GT.US', 'open')
-        print(ts2)
         self.assertEqual(ts, ts2)
         ts3:TimeSeries = ts.cutndays(date(2020,1,1), 10)
         ts4:TimeSeries = ts.cut2dates(date(2020,1,1), date(2020,1,10))
@@ -91,6 +116,12 @@ class UnitTestData(unittest.TestCase):
         self.assertEqual(t.isin, 'US3825501014')
         self.assertEqual(t.name, 'Goodyear Tire & Rubber Co')
         self.assertEqual(t.type, 'Common Stock')
+
+    def test_multiple_search(self):
+        self.assertEqual(len(search("MICRO")), 43)
+    
+    def test_hot_search(self):
+        self.assertEqual(len(search("MICROSOFT")), 1)
 
 if __name__ == '__main__':
     init()

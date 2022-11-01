@@ -6,6 +6,7 @@
 EXCHANGE=US
 CONTROLLER=0
 CONFIGFILE="config/controller.json"
+TYPE="price"
 
 #Process command line argument --exchange US
 POSITIONAL_ARGS=()
@@ -26,6 +27,10 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    --type)
+      TYPE="$2"
+      shift
+      shift
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -45,5 +50,5 @@ then
 else
     echo "Running single controller feeder..."
     cd $(dirname "$0")/../backend
-    python controlFeed.py --debug INFO --config $CONFIGFILE
+    python controlFeed.py --debug INFO --load $TYPE --config $CONFIGFILE
 fi

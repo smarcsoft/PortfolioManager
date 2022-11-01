@@ -53,9 +53,11 @@ run the linuxsetup.sh script. This will setup the python environment and install
 ## connect
 connect.ps1 connects through ssh to the underlying server infrastructure
 Example:
-connect.ps1: connects to the main backend server using the default user name (smarcsoft)
-connect.ps1 -server scheduler connects to the scheduling server using the default user name
-connect.ps1 -username ec2-user -keyfile PortfolioManager.pem -server backend connects to the main compute server using the ec2-user
+**connect.ps1**: connects to compute server using the default user name (smarcsoft)
+**connect.ps1 -username ec2-user -keyfile PortfolioManager.pem -server backend** connects to the main compute server using the ec2-user
+**connect.ps1 -server session** connects to the session manager
+**connect.ps1 -server scheduler** connects to the scheduling server using the default user name (will be deprecated)
+
 
 # Key scripts for Unix
 start_instance.sh: This is the master scripts. It starts the compute server if needed, run jupiter on it, and configure the web proxy to access it through pm.smarcsoft.com

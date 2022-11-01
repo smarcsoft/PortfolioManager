@@ -1,0 +1,1 @@
+class FeederException(Exception): pass

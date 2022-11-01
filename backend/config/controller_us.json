@@ -1,1 +1,122 @@
-[{"Batch_Name": "Batch_01", "Remaining_size": 1310, "Exchanges": [{"Code": "US", "Part": 10, "Start": 47241, "Size": 5251}]}, {"Batch_Name": "Batch_02", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 1, "Start": 0, "Size": 5249}]}, {"Batch_Name": "Batch_03", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 2, "Start": 5249, "Size": 5249}]}, {"Batch_Name": "Batch_04", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 3, "Start": 10498, "Size": 5249}]}, {"Batch_Name": "Batch_05", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 4, "Start": 15747, "Size": 5249}]}, {"Batch_Name": "Batch_06", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 5, "Start": 20996, "Size": 5249}]}, {"Batch_Name": "Batch_07", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 6, "Start": 26245, "Size": 5249}]}, {"Batch_Name": "Batch_08", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 7, "Start": 31494, "Size": 5249}]}, {"Batch_Name": "Batch_09", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 8, "Start": 36743, "Size": 5249}]}, {"Batch_Name": "Batch_10", "Remaining_size": 1312, "Exchanges": [{"Code": "US", "Part": 9, "Start": 41992, "Size": 5249}]}]
+[
+    {
+        "Batch_Name": "Batch_01",
+        "Remaining_size": 1310,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 10,
+                "Start": 47241,
+                "Size": 5251
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_02",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 1,
+                "Start": 0,
+                "Size": 5249
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_03",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 2,
+                "Start": 5249,
+                "Size": 5249
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_04",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 3,
+                "Start": 10498,
+                "Size": 5249
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_05",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 4,
+                "Start": 15747,
+                "Size": 5249
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_06",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 5,
+                "Start": 20996,
+                "Size": 5249
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_07",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 6,
+                "Start": 26245,
+                "Size": 5249
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_08",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 7,
+                "Start": 31494,
+                "Size": 5249
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_09",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 8,
+                "Start": 36743,
+                "Size": 5249
+            }
+        ]
+    },
+    {
+        "Batch_Name": "Batch_10",
+        "Remaining_size": 1312,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 9,
+                "Start": 41992,
+                "Size": 5249
+            }
+        ]
+    }
+]

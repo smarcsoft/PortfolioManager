@@ -41,15 +41,8 @@ fi
 echo "Executing feeder on $TYPE..."
 #Get the public IP of the compute server
 backend_ip=$(aws ec2 describe-instances --instance-ids i-0a3774d4c3e971e64 --query Reservations[].Instances[].PublicIpAddress[] --output text)
-if [ $TYPE = "price" ]
-then
-    ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --config $CONFIGFILE
-fi
-if [ $TYPE = "fundamental_data" ]
-   ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /ho\
-me/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE
-then
-fi 
+ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE
+ 
 if [ $NO_INFRA -eq 0 ]
 then
     echo "Stopping AWS infrastructure"

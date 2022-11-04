@@ -12,9 +12,10 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       ;;
     --type)
-	TYPE="$2" #price or fundamental_date
+	TYPE="$2" #price or fundamental_data
 	shift
 	shift
+      ;;
     --config)
       CONFIGFILE="$2"
       shift # past argument

@@ -31,6 +31,7 @@ while [[ $# -gt 0 ]]; do
       TYPE="$2"
       shift
       shift
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1

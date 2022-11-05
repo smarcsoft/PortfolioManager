@@ -1,2 +1,3 @@
 30 23 * * * /home/smarcsoft/PortfolioManager/aws/run_update.sh --config config/controller_us.json
+30 21 * * 1 [`date +\%d` -le 07] && /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json
 @reboot /home/smarcsoft/PortfolioManager/frontend/api/runapi.sh

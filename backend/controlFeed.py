@@ -32,9 +32,11 @@ def process_arguments():
     parser.add_argument('--debug', '--log', '-d', nargs='?', choices=['DEBUG', 'INFO','WARN', 'ERROR','CRITICAL'], help="Enable debugging with the specified level")
     parser.add_argument('--config', '-c', nargs='?', action="store",type=str, help="Use the configuration file specified.")
     parser.add_argument('--load', '-l', nargs='?', action="store",type=str, help="Load type. Type can be price|fundamental_data. Default is price")
+    parser.add_argument('--batch', '-b', nargs='?', action="store",type=str, help="Loads the batch specified.")
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
     args=parser.parse_args()
     debug_level = None
+    batch = None
     if hasattr(args,"d"): debug_level = args.d 
     if hasattr(args,"debug"): debug_level = args.debug 
     if hasattr(args,"log"): debug_level = args.log 
@@ -49,7 +51,9 @@ def process_arguments():
     load_type = "price"
     if hasattr(args,"load") and (args.load != None): 
         load_type = args.load 
-    return config_file,load_type,debug_level
+    if hasattr(args,"batch") and (args.batch != None): 
+        batch = args.batch 
+    return config_file,load_type,debug_level, batch
 
 def run_control(config:list, configfile, load_type, debug_level):
     #run each batch on the current machine
@@ -67,7 +71,10 @@ def run_control(config:list, configfile, load_type, debug_level):
 
 if __name__ == '__main__':
     #read json config file
-    conf,load_type,debug_level = process_arguments()
+    conf,load_type,debug_level,batch = process_arguments()
     with open(conf, "r") as config_file:
         config = json.load(config_file)
+    if(batch != None):
+        # Just retain the batch to process, not the set of batches specified in the configuration file
+        config = [conf for conf in config if conf["Batch_Name"] == batch]
     run_control(config, conf, load_type, debug_level)

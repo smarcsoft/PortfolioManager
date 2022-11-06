@@ -1,2 +1,50 @@
-30 23 * * * /home/smarcsoft/PortfolioManager/aws/run_update.sh --config config/controller_us.json
+# Edit this file to introduce tasks to be run by cron.
+# 
+# Each task to run has to be defined through a single line
+# indicating with different fields when the task will be run
+# and what command to run for the task
+# 
+# To define the time you can provide concrete values for
+# minute (m), hour (h), day of month (dom), month (mon),
+# and day of week (dow) or use '*' in these fields (for 'any').
+# 
+# Notice that tasks will be started based on the cron's system
+# daemon's notion of time and timezones.
+# 
+# Output of the crontab jobs (including errors) is sent through
+# email to the user the crontab file belongs to (unless redirected).
+# 
+# For example, you can run a backup of all your user accounts
+# at 5 a.m every week with:
+# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
+# 
+# For more information see the manual pages of crontab(5) and cron(8)
+# 
+# m h  dom mon dow   command
+# Run the price data load from monday to friday
+30 20 * * 1-5 /home/smarcsoft/PortfolioManager/aws/run_update.sh --config config/controller_us.json
+# Start the compute server and database server before the fundamental data load
+45 22 * * 6 /home/smarcsoft/PortfolioManager/aws/start_infra.sh
+# Runs the fundamental data load batch 01 for the US on saturday
+00 21 * * 6 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_01 --no-infra
+# Runs the fundamental data load batch 02 for the US on saturday 
+30 21 * * 6 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_02 --no-infra
+# Runs the fundamental data load batch 03 for the US on saturday
+00 22 * * 6 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_03 --no-infra
+# Runs the fundamental data load batch 04 for the US on saturday
+30 22 * * 6 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_04 --no-infra
+# Runs the fundamental data load batch 05 for the US on saturday
+00 23 * * 6 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_05
+# Start the compute server and database server before the fundamental data load
+45 22 * * 7 /home/smarcsoft/PortfolioManager/aws/start_infra.sh
+# Runs the fundamental data load batch 06 for the US on sunday
+00 21 * * 7 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_06 --no-infra
+# Runs the fundamental data load batch 07 for the US on sunday
+30 21 * * 7 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_07 --no-infra
+# Runs the fundamental data load batch 08 for the US on sunday
+00 22 * * 7 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_08 --no-infra
+# Runs the fundamental data load batch 09 for the US on sunday
+30 22 * * 7 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_09 --no-infra
+# Runs the fundamental data load batch 10 for the US on sunday
+00 23 * * 7 /home/smarcsoft/PortfolioManager/aws/run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_10
 @reboot /home/smarcsoft/PortfolioManager/frontend/api/runapi.sh

@@ -1,5 +1,4 @@
 import unittest
-from Exchange import Exchange
 
 class Ticker:
     '''
@@ -12,7 +11,7 @@ class Ticker:
     name: example 'Goodyear Tire & Rubber Co'
     type: example 'Common Stock'
     '''
-    def __init__(self, code:str, exchange:Exchange=Exchange('NASDAQ','US'), type:str ='Common Stock',  isin:str="", name:str="", country:str="USA",  currency:str="USD"):
+    def __init__(self, code:str, exchange:str='US', type:str ='Common Stock',  isin:str="", name:str="", country:str="USA",  currency:str="USD"):
         self._type= type
         self._code= code
         self._isin = isin
@@ -28,7 +27,7 @@ class Ticker:
         return self.get_full_ticker().__hash__()
     
     def get_full_ticker(self):
-        return self._code+'.'+self._exchange.code
+        return self._code+'.'+self._exchange
     
     @property
     def code(self):
@@ -59,12 +58,12 @@ class Ticker:
         return self._isin
 
     def __repr__(self):
-        return "Ticker {code} for {name} with isin {isin}".format(code = self._code, name = self._name, isin = self._isin)
+        return "Ticker {code} for company {name} with isin {isin}".format(code = self._code, name = self._name if len(self._name) != 0 else "UNKNOWN", isin = self._isin if len(self._isin) != 0 else "UNKNOWN")
 
 
 class UnitTestTicker(unittest.TestCase):
     def test_ticker(self):
-        t:Ticker = Ticker('GT', Exchange('NASDAQ', 'US'), type='Common Stock', isin='US3825501014', name='Goodyear Tire & Rubber Co', country='USA', currency='USD')
+        t:Ticker = Ticker('GT', 'US', type='Common Stock', isin='US3825501014', name='Goodyear Tire & Rubber Co', country='USA', currency='USD')
         self.assertEqual(t.get_full_ticker(), "GT.US")
 
     def test_ticker_equal(self):

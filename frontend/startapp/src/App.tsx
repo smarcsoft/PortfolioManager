@@ -11,7 +11,7 @@ interface ServerStatus{
 }
 
 interface SystemStatus{
-  status: number,
+  status: number, // status is 16 (RUNNING) if running correctly
   details: string
 }
 
@@ -142,6 +142,19 @@ export class App extends Component<{}, {console_text:string}> {
     }
   }
 
+  async addlineWithSystemStatus(status:SystemStatus)
+  {
+    console.log("System Status:"+status.status+"...");
+    if(status.status===RUNNING)
+    {
+      await this.addline("Portfolio Management status is Ready");
+    }
+    else
+    {
+      await this.addline("Portfolio Management status is Not up and running (status code "+status.status+" - details:"+status.details+")");
+    }
+  }
+
   async button_states_on_status(server_status_code:number, system_status_code:number)
   {
     console.log("Updating button states...(server:"+server_status_code+", system:"+system_status_code+")")
@@ -246,6 +259,7 @@ export class App extends Component<{}, {console_text:string}> {
       if(st.status_code === RUNNING)
       {
         let ss:SystemStatus = await this.get_jupyter_status();
+        this.addlineWithSystemStatus(ss);
         this.button_states_on_status(st.status_code, ss.status);
         this.compute_ip = st.ip;
       } 
@@ -356,7 +370,7 @@ export class App extends Component<{}, {console_text:string}> {
     for(let i=1;i<=60;i++) // waits for up to 5 minutes
     {
       ss = await this.get_server_status();
-      if((ss.status_code === STOPPING) || (ss.status_code === SHUTTING_DOWN) || (ss.status_code=== NOT_KNOWN))
+      if((ss.status_code === STOPPING) || (ss.status_code === SHUTTING_DOWN) || (ss.status_code=== NOT_KNOWN) || (ss.status_code === PENDING))
       {
         console.log("STOPPING|SHUTTING_DOWN ("+ss.status_code+")")
         await new Promise( resolve => setTimeout(resolve, 5000) );

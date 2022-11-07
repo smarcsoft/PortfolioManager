@@ -50,7 +50,9 @@ COMPUTE_INSTANCE="i-0a3774d4c3e971e64"
 api = Api(app)
 k=get_config("akey", configfile=CONFIG_FILE)
 s=get_config("asec", configfile=CONFIG_FILE)
+logger = logging.getLogger('root')
 boto3.Session(k, s)
+logger.info("Session initialized with key["+k+"] and password["+s+"].")
 client = boto3.client('ec2', 'us-east-1')
 unix = False
 scriptdir=get_config("scriptdir", configfile=CONFIG_FILE)

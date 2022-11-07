@@ -20,8 +20,9 @@ import datetime
 import numpy as np
 import pyodbc
 from config import get_config, process_arguments
+from exceptions import FeederException
+from feedutils import get_ticker_slice
 
-class FeederException(Exception): pass
 
 logging.config.fileConfig("config/logging.conf")
 __logger = logging.getLogger('feeder')
@@ -65,10 +66,7 @@ def __updatedb_exchange(exchange):
         __stats['Exchanges']['Errors'].append(exchange['Code']+'-'+str(exchange['Part']))
 
 
-def __get_tickers(symbols:list, exchange):
-    if exchange['Size'] == -1: return symbols
-    #Filter for the subexchnage
-    return symbols[exchange['Start']:exchange['Start']+exchange['Size']]
+
 
 def __updatedb_tickers(exchange,client):
     '''
@@ -80,7 +78,7 @@ def __updatedb_tickers(exchange,client):
     __logger.info("Getting the ticker list for exchange %s", exchange['Code'])
     try:
         symbols = client.get_exchange_symbols(exchange=exchange['Code'])
-        symbols = __get_tickers(symbols, exchange)
+        symbols = get_ticker_slice(symbols, exchange)
         __logger.info("%d symbols retrieved for exchange %s part %d", len(symbols), exchange['Code'],exchange['Part'] )
         progress = 0
         steps = math.ceil(len(symbols)/10)

@@ -7,13 +7,14 @@ Write-Host -NoNewline "Waiting for stopped status..."
 Invoke-Expression "aws ec2 wait instance-stopped --region $region --instance-ids $instance_id"
 Write-Host "instance successfully stopped"
 
-Write-Host -NoNewline "Stopping session manager server..."
-Invoke-Expression "aws ec2 stop-instances --region $region --instance-ids $session_id"
-Write-Host "succeeded..."
-Write-Host -NoNewline "Waiting for stopped status..."
+
+#Write-Host -NoNewline "Stopping session manager server..."
+#Invoke-Expression "aws ec2 stop-instances --region $region --instance-ids $session_id"
+#Write-Host "succeeded..."
+#Write-Host -NoNewline "Waiting for stopped status..."
 # wait until the instance is running
-Invoke-Expression "aws ec2 wait instance-stopped --region $region --instance-ids $session_id"
-Write-Host "instance successfully stopped"
+#Invoke-Expression "aws ec2 wait instance-stopped --region $region --instance-ids $session_id"
+#Write-Host "instance successfully stopped"
 
 
 Write-Host -NoNewline "Stopping database server..."

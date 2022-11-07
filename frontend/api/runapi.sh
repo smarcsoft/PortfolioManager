@@ -33,4 +33,5 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "Running frontend API..."
+cd $current_dir
 python $current_dir/pmapi.py 

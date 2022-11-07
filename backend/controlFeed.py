@@ -4,18 +4,22 @@ import logging
 import logging.config
 from multiprocessing import Process
 from feeder.feeder import run_feeder_batch
+from feeder.fdfeed import run_fundamental_data_feeder_batch
 
 logging.config.fileConfig("config/logging.conf")
 __logger = logging.getLogger('controller')
 
-def run_batch(config:dict, configfile)->Process:
+def run_batch(config:dict, configfile, load_type, debug_level)->Process:
     '''
     Spawns a batch process and return the process spawned
     '''
     __logger.info("Running batch %s", config['Batch_Name'])
     __logger.info("Exchanges covered:%s", [exchange['Code'] for exchange in config['Exchanges']])
     #spawn the feeder with the list of exchanges
-    p = Process(target=run_feeder_batch, args=(config['Batch_Name'],configfile))
+    if(load_type == "price"):
+        p = Process(target=run_feeder_batch, args=(config['Batch_Name'],configfile))
+    if(load_type == "fundamental_data"):
+        p = Process(target=run_fundamental_data_feeder_batch, args=(config['Batch_Name'],configfile, debug_level))
     p.start()
     return p
 
@@ -27,9 +31,12 @@ def process_arguments():
     parser = argparse.ArgumentParser(description="Feed the database of the portfolio manager using multiple loader instances")
     parser.add_argument('--debug', '--log', '-d', nargs='?', choices=['DEBUG', 'INFO','WARN', 'ERROR','CRITICAL'], help="Enable debugging with the specified level")
     parser.add_argument('--config', '-c', nargs='?', action="store",type=str, help="Use the configuration file specified.")
+    parser.add_argument('--load', '-l', nargs='?', action="store",type=str, help="Load type. Type can be price|fundamental_data. Default is price")
+    parser.add_argument('--batch', '-b', nargs='?', action="store",type=str, help="Loads the batch specified.")
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
     args=parser.parse_args()
     debug_level = None
+    batch = None
     if hasattr(args,"d"): debug_level = args.d 
     if hasattr(args,"debug"): debug_level = args.debug 
     if hasattr(args,"log"): debug_level = args.log 
@@ -40,14 +47,20 @@ def process_arguments():
     config_file = "config/controller.json"
     if hasattr(args,"config") and (args.config != None): 
         config_file = args.config 
-    return config_file
 
-def run_control(config:list, configfile):
+    load_type = "price"
+    if hasattr(args,"load") and (args.load != None): 
+        load_type = args.load 
+    if hasattr(args,"batch") and (args.batch != None): 
+        batch = args.batch 
+    return config_file,load_type,debug_level, batch
+
+def run_control(config:list, configfile, load_type, debug_level):
     #run each batch on the current machine
     processes=[]
     for configuration in config:
         __logger.info("Spawning batch process...")
-        p = run_batch(configuration, configfile)
+        p = run_batch(configuration, configfile, load_type, debug_level)
         __logger.info("Batch process spawn %s", str(p))
         processes.append(p)
 
@@ -58,7 +71,10 @@ def run_control(config:list, configfile):
 
 if __name__ == '__main__':
     #read json config file
-    conf = process_arguments()
+    conf,load_type,debug_level,batch = process_arguments()
     with open(conf, "r") as config_file:
         config = json.load(config_file)
-    run_control(config, conf)
+    if(batch != None):
+        # Just retain the batch to process, not the set of batches specified in the configuration file
+        config = [conf for conf in config if conf["Batch_Name"] == batch]
+    run_control(config, conf, load_type, debug_level)

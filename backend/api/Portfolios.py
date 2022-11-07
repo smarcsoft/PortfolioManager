@@ -4,9 +4,8 @@ import unittest
 from numpy import ndarray, number
 import numpy
 import pandas as pd
-from Ticker import Ticker
 from PMExceptions import PMException
-from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY
+from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY, Ticker,  check_currency
 from Positions import Positions
 from TimeSeries import TimeSeries
 from pmdata import get_timeseries
@@ -14,16 +13,9 @@ from pmdata import get_timeseries
 
 
 #List of currencies supported by the system
-supported_currencies =("USD","EUR", "RUB", "GBP", "CNY", "JPY", "SGD", "INR", "CHF", "AUD", "CAD", "HKD", "MYR", "NOK", "NZD", "ZAR","SEK", "DKK", "BRL", "ZAC", "MXN", "TWD", "KRW", "CLP", "CZK", "HUF", "IDR", "ISK", "MXV", "PLN", "TRY", "UYU", "THB", "SAR", "ILS")
 DEFAULT_VALUATION_DATAPOINT='adjusted_close'
 DEFAULT_CURRENCY='USD'
 DEFAULT_INSTRUMENT_TYPE='Common Stock'
-
-
-def check_currency(currency:Currency):
-        if currency not in supported_currencies:
-            raise PMException("Invalid currency ({currency})".format(currency=currency))
-        return True
 
 
 class Portfolio:
@@ -45,23 +37,22 @@ class Portfolio:
         '''
         return self.positions
     
-    def add(self, currency:Currency, quantity:number):
+    def add(self, currency:str, quantity:number, tags:set=()):
         '''
         Adds a quantify of cash in the portfolio
         '''
         check_currency(currency)
-        if(PositionIdentifier(CASH, currency) in self.positions):
-            self.positions[PositionIdentifier(CASH, currency)] = self.positions[PositionIdentifier(CASH,currency)] + quantity
-        else:
-            self.positions[PositionIdentifier(CASH,currency)] = quantity
+        self._buy(PositionIdentifier(CASH, Currency(currency), tags), quantity)
 
-    def buy(self, ticker_code:str, quantity:number, exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD" ):
+    def buy(self, ticker_code:str, quantity:number, exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD", tags:set=() ):
         '''
         Adds an equity in the portfolio
         '''
-        self._buy(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency)), quantity)
+        self._buy(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency), tags), quantity)
 
     def _buy(self, ticker:PositionIdentifier, quantity:number):
+        # Tagged positions are not aggregared with non-tagged positions. They are aggregated together 
+        # if they have the same tickers and tags
         if(ticker in self.positions):
             self.positions[ticker] = self.positions[ticker] + quantity
         else:
@@ -74,13 +65,14 @@ class Portfolio:
         self._sell(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency)), quantity)
 
 
-    def withdraw(self, currency:Currency, quantity:number):
+    def withdraw(self, currency:str, quantity:number):
         '''
         Withdraws some cash from the portfolio
         '''
+        #TODO: Having segregated position can prevent withdrawing or selling enough stocks
         check_currency(currency)
-        if((PositionIdentifier(CASH, currency) in self.positions) and (self.positions[PositionIdentifier(CASH, currency)] >= quantity)):
-            self.positions[PositionIdentifier(CASH, currency)] = self.positions[PositionIdentifier(CASH,currency)] - quantity
+        if((PositionIdentifier(CASH, Currency(currency)) in self.positions) and (self.positions[PositionIdentifier(CASH, Currency(currency))] >= quantity)):
+            self.positions[PositionIdentifier(CASH, Currency(currency))] = self.positions[PositionIdentifier(CASH,Currency(currency))] - quantity
         else:
             raise PMException("Cannot sell {quantity} {currency}. The portfolio does not have this amount of cash in the denominated currency".format(quantity=quantity, currency=currency))
 
@@ -94,9 +86,13 @@ class Portfolio:
     def get_shares(self, ticker_code:str , exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD" )->number:
         return self._get_shares(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency)))
 
-    def get_cash(self, currency:Currency)->number:
+
+    def get_position_amount(self, pi:PositionIdentifier)->number:
+        return self.positions[pi]
+
+    def get_cash(self, currency:str)->number:
         check_currency(currency)
-        return self.positions[PositionIdentifier(CASH,currency)]
+        return self.positions[PositionIdentifier(CASH,Currency(currency))]
 
     def valuator(self):
         return PortfolioValuator(self)
@@ -157,15 +153,16 @@ class PortfolioGroup:
         return PortfolioGroupValuator(self)
 
 class InstrumentValuator:
-    def __init__(self, portfolio:Portfolio, target_currency:Currency) -> None:
+    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency) -> None:
         self.target_currency = target_currency
         self.portfolio = portfolio
+        self.pi = pi
 
     @abc.abstractmethod
     def get_valuation(self, valdate:date)->number:
         raise NotImplementedError("get_valuation should have an implementation in derived classes")
 
-    def convert_target_currency(self, value:number, valdate:date, source_currency:Currency=DEFAULT_CURRENCY)->number:
+    def convert_to_target_currency(self, value:number, valdate:date, source_currency:Currency=DEFAULT_CURRENCY)->number:
         if(source_currency != self.target_currency):
             #TODO support currency conversion
             raise PMException("Currency conversions are not yet supported")
@@ -173,31 +170,32 @@ class InstrumentValuator:
 
     @staticmethod
     def valuator(portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency, **valuator_args):
+        '''
+        Returns the correct valuator for the right time of financial instrument.
+        '''
         if(pi.type == CASH):
-            return CashValuator(portfolio, pi.id, target_currency)
+            return CashValuator(portfolio, pi, target_currency)
         if(pi.type == EQUITY):
-            return EquityValuator(portfolio, pi.id,target_currency, **valuator_args)
+            return EquityValuator(portfolio, pi, target_currency, **valuator_args)
         raise PMException("Could not create valuator for " + pi)
     
 
 class EquityValuator(InstrumentValuator):
-    def __init__(self, portfolio:Portfolio, ticker:Ticker, target_currency:Currency, dpname=DEFAULT_VALUATION_DATAPOINT) -> None:
-        InstrumentValuator.__init__(self, portfolio, target_currency)
+    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency, dpname=DEFAULT_VALUATION_DATAPOINT) -> None:
+        InstrumentValuator.__init__(self, portfolio, pi, target_currency)
         self.valuation_data_point = dpname
-        self.ticker = ticker
 
     def get_valuation(self, valdate:date)->number:
-        closing_price = get_timeseries(full_ticker=self.ticker.get_full_ticker(), datapoint_name=self.valuation_data_point).get(valdate)
-        return self.convert_target_currency(closing_price*self.portfolio.get_shares(self.ticker.code, self.ticker.exchange), valdate, self.target_currency )
+        closing_price = get_timeseries(full_ticker=self.pi.id.get_full_ticker(), datapoint_name=self.valuation_data_point).get(valdate)
+        return self.convert_to_target_currency(closing_price*self.portfolio.get_position_amount(self.pi), valdate, self.target_currency)
 
 
 class CashValuator(InstrumentValuator):
-    def __init__(self, portfolio:Portfolio, cash_currency:Currency, target_currency:Currency) -> None:
-        InstrumentValuator.__init__(self, portfolio, target_currency)
-        self.cash_currency = cash_currency
+    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency) -> None:
+        InstrumentValuator.__init__(self, portfolio,pi, target_currency)
 
     def get_valuation(self, valdate:date)->number:
-        return self.convert_target_currency(self.portfolio.get_cash(self.cash_currency), valdate, self.target_currency)
+        return self.convert_to_target_currency(self.portfolio.get_position_amount(self.pi), valdate, self.target_currency)
 
 class IPorfolioValuator:
   
@@ -267,7 +265,7 @@ class PortfolioValuator(IPorfolioValuator):
     def get_valuation(self, valdate:date=None, dpname:str = DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->number:
         portfolio_valuation:number = 0.0
         for position_identifier in self.portfolio.get_positions():
-            instrument_value:number = InstrumentValuator.valuator(self.portfolio, position_identifier, ccy, dpname=dpname).get_valuation(valdate)
+            instrument_value:number = InstrumentValuator.valuator(self.portfolio, position_identifier, Currency(ccy), dpname=dpname).get_valuation(valdate)
             portfolio_valuation = portfolio_valuation + instrument_value
         return portfolio_valuation
 
@@ -395,7 +393,7 @@ class UnitTestPortfolio(unittest.TestCase):
         p:Portfolio = Portfolio()
         p.buy('MSFT', 10)
         p.buy('MSFT', 20)
-        pg:PortfolioGroup = PortfolioGroup("My Investments")
+        pg:PortfolioGroup = PortfolioGroup("My Investments1")
         p2:Portfolio = Portfolio("My cash")
         p2.add('USD', 67000)
         p2.add('CHF', 480000)
@@ -411,7 +409,7 @@ class UnitTestPortfolio(unittest.TestCase):
         p:Portfolio = Portfolio("My equities")
         p.buy('MSFT', 10)
         p.buy('MSFT', 20)
-        pg:PortfolioGroup = PortfolioGroup("My Investments")
+        pg:PortfolioGroup = PortfolioGroup("My Investments2")
         p2:Portfolio = Portfolio("My cash outside France")
         p2.add('USD', 67000)
         p2.add('CHF', 480000)
@@ -422,6 +420,19 @@ class UnitTestPortfolio(unittest.TestCase):
         p3.add('EUR', 25000)
         pg.add(p3, "CASH")
         self.assertTrue(len(pg), 3)
+
+
+    def test_portfolio_tags(self):
+        p:Portfolio = Portfolio("My equities")
+        p.buy('MSFT', 10, tags=("INITIAL"))
+        p.buy('MSFT', 20, tags=("BONUS"))
+        p.add('USD', 67000, tags=("BONUS"))
+        p.add('CHF', 480000, tags=("YEAR2"))
+        p.add('EUR', 25000, tags=("ASSURANCE VIE", "BONUS", "YEAR2"))
+        print(str(p))
+
+        #Check selling/withdrawing
+
 
 
 class UnitTestValuations(unittest.TestCase):

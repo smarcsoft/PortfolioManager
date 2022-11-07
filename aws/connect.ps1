@@ -1,10 +1,10 @@
 param ($username='smarcsoft', $keyfile='PMsmarcsoft.pem', $server="backend")
 switch ($server)
 {
-    "backend"
+    "compute"
     {
         . .\vars.ps1
-        Write-Host "Connecting to the main backend server"
+        Write-Host "Connecting to the main compute server"
         Write-Host -NoNewline "Getting the public DNS name of the instance..."
         Invoke-Expression "aws ec2 describe-instances --region us-east-1 --query `"Reservations[].Instances[?InstanceId=='$instance_id'].PublicIpAddress[]|[0]`"" -OutVariable out | Tee-Object -Variable out 
         $dns = $out.Trim('"')

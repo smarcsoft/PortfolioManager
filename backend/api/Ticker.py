@@ -58,7 +58,7 @@ class Ticker:
         return self._isin
 
     def __repr__(self):
-        return "Ticker {code} for {name} with isin {isin}".format(code = self._code, name = self._name if len(self._name) != 0 else "UNKNOWN", isin = self._isin if len(self._isin) != 0 else "UNKNOWN")
+        return "Ticker {code} for company {name} with isin {isin}".format(code = self._code, name = self._name if len(self._name) != 0 else "UNKNOWN", isin = self._isin if len(self._isin) != 0 else "UNKNOWN")
 
 
 class UnitTestTicker(unittest.TestCase):

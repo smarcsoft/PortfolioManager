@@ -5,8 +5,8 @@ import unittest
 import numpy as np
 import json
 from TimeSeries import fill, TimeSeries, PMException
-from Ticker import Ticker
 from FundamentalData import FundamentalData
+from PositionIdentifier import Ticker
 from feedutils import get_database, set_database
 
 

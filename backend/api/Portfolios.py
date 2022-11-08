@@ -37,14 +37,14 @@ class Portfolio:
         '''
         return self.positions
     
-    def add(self, currency:str, quantity:number, tags:set=()):
+    def add(self, currency:str, quantity:number, tags:set=None):
         '''
         Adds a quantify of cash in the portfolio
         '''
         check_currency(currency)
         self._buy(PositionIdentifier(CASH, Currency(currency), tags), quantity)
 
-    def buy(self, ticker_code:str, quantity:number, exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD", tags:set=() ):
+    def buy(self, ticker_code:str, quantity:number, exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD", tags:set=None ):
         '''
         Adds an equity in the portfolio
         '''
@@ -83,16 +83,16 @@ class Portfolio:
             raise PMException("Cannot sell {ticker_code}. Either the portfolio does not own the instrument or it does not have enough quantity of this instrument.".format(ticker_code=ticker))
 
 
-    def get_shares(self, ticker_code:str , exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD" )->number:
-        return self._get_shares(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency)))
+    def get_shares(self, ticker_code:str , exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD", tags:set=None )->number:
+        return self._get_shares(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency), tags))
 
 
     def get_position_amount(self, pi:PositionIdentifier)->number:
         return self.positions[pi]
 
-    def get_cash(self, currency:str)->number:
+    def get_cash(self, currency:str, tags:set=None)->number:
         check_currency(currency)
-        return self.positions[PositionIdentifier(CASH,Currency(currency))]
+        return self.positions[PositionIdentifier(CASH,Currency(currency), tags)]
 
     def valuator(self):
         return PortfolioValuator(self)
@@ -424,13 +424,17 @@ class UnitTestPortfolio(unittest.TestCase):
 
     def test_portfolio_tags(self):
         p:Portfolio = Portfolio("My equities")
-        p.buy('MSFT', 10, tags=("INITIAL"))
-        p.buy('MSFT', 20, tags=("BONUS"))
-        p.add('USD', 67000, tags=("BONUS"))
-        p.add('CHF', 480000, tags=("YEAR2"))
-        p.add('EUR', 25000, tags=("ASSURANCE VIE", "BONUS", "YEAR2"))
-        print(str(p))
-
+        p.buy('MSFT', 10, tags={"INITIAL"})
+        p.buy('MSFT', 20, tags={"BONUS"})
+        p.add('USD', 67000, tags={"BONUS"})
+        p.add('USD', 74000, tags={"BONUS", "YEAR2"})
+        p.add('CHF', 480000, tags={"YEAR2"})
+        p.add('EUR', 25000, tags={"ASSURANCE VIE", "BONUS", "YEAR2"})
+        self.assertEqual(p.get_shares('MSFT', tags={"INITIAL"}), 10)
+        self.assertEqual(p.get_shares('MSFT', tags={"BONUS"}), 20)
+        self.assertEqual(p.get_shares('MSFT', tags={"BONUS"}), 20)  
+        self.assertEqual(p.get_cash('USD', tags={'BONUS'}), 67000)
+        self.assertEqual(p.get_cash('USD', tags={'BONUS', "YEAR2"}), 74000)
         #Check selling/withdrawing
 
 

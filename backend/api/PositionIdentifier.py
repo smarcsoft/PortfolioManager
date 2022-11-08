@@ -2,6 +2,7 @@ import abc
 import unittest
 from PMExceptions import PMException
 
+
 #List of instrument types supported by the system
 CASH=1
 EQUITY=2 #Can be stocks, mutual funds, ETFs
@@ -116,16 +117,19 @@ class PositionIdentifier:
     For equities: ticker 
     For cash: currency
     '''
-    def __init__(self, instrument_type: InstrumentType, identifier:Ticker | Currency, tags:set=()):
+    def __init__(self, instrument_type: InstrumentType, identifier:Ticker | Currency, tags:set=None):
         self._type = instrument_type
         self._id = identifier
-        self._tags = tags
+        if(tags == None):
+            self._tags = set()
+        else:
+            self._tags = tags
 
     def __eq__(self, another):
         return (self._type == another._type) and (self._id==another._id) and (self.tags == another.tags)
 
     def __hash__(self):
-        return self._id.__hash__() + self.tags.__hash__()
+        return self._id.__hash__()
     
     @property
     def id(self):
@@ -172,14 +176,29 @@ class UnitTestTicker(unittest.TestCase):
         t2=Ticker('MSFT')
         self.assertEqual(t1,t2)
 
+    def test_position_identifier_hash(self):
+        t1=Ticker('MSFT')
+        t2=Ticker('MSFT')
+        self.assertEqual(t1.__hash__(),t2.__hash__())
+        pi1:PositionIdentifier = PositionIdentifier(EQUITY, t1)
+        pi2:PositionIdentifier = PositionIdentifier(EQUITY, t2)
+        self.assertEqual(pi1.__hash__(),pi2.__hash__())
+        pi1:PositionIdentifier = PositionIdentifier(EQUITY, t1, tags={'INITIAL'})
+        pi2:PositionIdentifier = PositionIdentifier(EQUITY, t2, tags={'INITIAL'})
+        self.assertEqual(pi1.__hash__(),pi2.__hash__())
+
     def test_currency(self):
         c1 = Currency("USD")
         c2 = Currency("USD")
         self.assertEqual(c1, c2)
 
     def test_positionIdentifier(self):
-        pi1 = PositionIdentifier(EQUITY, Ticker("MSCI"), tags=("EQUITY", "BONUS", "YEAR2020"))
-        self.assertEqual(pi1._get_full_id_with_tags(), "MSCI.US/EQUITY/BONUS/YEAR2020")
+        pi1 = PositionIdentifier(EQUITY, Ticker("MSCI"), tags={"EQUITY", "BONUS", "YEAR2020"})
+        self.assertTrue(pi1._get_full_id_with_tags().index("YEAR2020")!=0)
+        self.assertTrue(pi1._get_full_id_with_tags().index("EQUITY")!=0)
+        self.assertTrue(pi1._get_full_id_with_tags().index("BONUS")!=0)
+
+
 
 
 if __name__ == '__main__':

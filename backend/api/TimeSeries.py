@@ -2,6 +2,7 @@ from datetime import date, timedelta
 import types
 import unittest
 import numpy as np
+from numpy import ndarray, number
 import pandas as pd
 from PMExceptions import PMException
 
@@ -84,6 +85,21 @@ class TimeSeries:
     def cutndays(self, start_date:date, days:int):
         return TimeSeries(self.time_series[(start_date -self.start_date).days:(start_date -self.start_date).days + days], start_date, start_date + timedelta(days=days-1))
 
+    def rebase(self, base_date:date=None, base_value:number=100):
+        '''
+        Rebase the time series. 
+        We are rebasing a time series from a base date and a base value by computing the returns of the 
+        original time series from that date. 
+        '''
+        if(base_date == None):
+            base_date = self.start_date
+        period:pd.DatetimeIndex = pd.date_range(base_date, self.end_date, freq='D')
+        toreturn:ndarray = np.zeros((self.end_date - base_date).days+1)
+        toreturn[0]=base_value
+        for i, d in enumerate(period):
+            if(i==0): continue #Skip the first date since it is valued as base_value
+            toreturn[i]=toreturn[i-1] * self.get(base_date+timedelta(days=i))/ self.get(base_date+timedelta(days=i-1))
+        return TimeSeries(toreturn, base_date, end_date=self.end_date)
 
     
     def missing(self, method=fill.FORWARDFILL):

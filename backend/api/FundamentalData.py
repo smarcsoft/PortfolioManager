@@ -6,7 +6,7 @@ import unittest
 sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(),'utils'))
 sys.path.append(os.path.join(os.getcwd(),'../../..','utils'))
-from feedutils import get_database
+from feedutils import get_equity_database
 from PMExceptions import PMException
 
 class FundamentalData:
@@ -29,7 +29,7 @@ class FundamentalData:
         '''
         from the ticker, read the database and return a new FundamentalData object
         '''
-        db_loc = get_database()
+        db_loc = get_equity_database()
         (ticker, exchange) = full_ticker.split('.')
         file_loc = os.path.join(db_loc, exchange, ticker)+"/fd.json"
         if(os.path.exists(file_loc) == False):

@@ -75,6 +75,11 @@ class Ticker(IInstrumentIdentifier):
 
     def get_identifier(self)->str:
         return self.get_full_ticker()
+
+    def get_currency(self)->Currency:
+        if(self.exchange == 'US'):
+            return Currency("USD")
+        raise PMException("Undefined currency for ticker {ticker}", ticker = self.get_full_ticker())
         
     @property
     def code(self):

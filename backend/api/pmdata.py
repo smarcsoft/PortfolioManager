@@ -7,18 +7,21 @@ import json
 from TimeSeries import fill, TimeSeries, PMException
 from FundamentalData import FundamentalData
 from PositionIdentifier import Ticker
-from feedutils import get_database, set_database
+from feedutils import get_equity_database, get_fx_database, set_database
 
+__date_format = '%Y-%m-%d'
 
 TimeSeriesCache = dict[str, TimeSeries] # FullyQualifiedTicker_DataPointName, timeseries
 TickerCache = dict[str, dict[str, Ticker]] # Dictionary of (market, dictionary of (symbol name, Ticker)) for quick lookup by name
+
+DEFAULT_CURRENCY_DATAPOINT="adjusted_close"
 
 __cache = {}
 __tickercache = {}
 
 def init(database_location:str = None):
     if(database_location != None): set_database(database_location)
-    location = get_database()
+    location = get_equity_database()
     #check if the location is correct
     if not exists(location): raise PMException("Missing database at {location}".format(location=location))
     __init_ticker_cache()
@@ -37,7 +40,7 @@ def search(symbol_name:str, market:str='US', type:str = "Common Stock")->list[Ti
 def __init_ticker_cache(exchange:str='US'):
     if exchange not in __tickercache:
         __tickercache[exchange] = {}
-    path = os.path.join(get_database(), exchange)
+    path = os.path.join(get_equity_database(), exchange)
     # Read all directory entries as tickers
     for ticker in os.listdir(path=path):
         # Read symbol name
@@ -48,6 +51,31 @@ def __init_ticker_cache(exchange:str='US'):
 def get_fundamental_data(full_ticker:str)->FundamentalData:
     return FundamentalData.load(full_ticker)
 
+def get_fx_timeseries(currency:str, datapoint_name:str=DEFAULT_CURRENCY_DATAPOINT ,fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
+    try:
+        if use_cache and (currency+"_"+datapoint_name in __cache):
+            return __cache[currency+"_"+datapoint_name]
+        # read it from the database
+        path = os.path.join(get_fx_database(), currency, datapoint_name)
+        a = np.load(path+'.npy')
+        #Read start and end dates
+        path = os.path.join(get_fx_database(),currency)
+        with open(os.path.join(path, datapoint_name+".meta")) as metafile:
+            meta = json.load(metafile)
+            start_date = datetime.strptime(meta["base_date"], __date_format)
+            end_date = datetime.strptime(meta["last_date"], __date_format)
+
+        # Create the time series intance to return
+        toreturn:TimeSeries =  TimeSeries(a, start_date.date(), end_date.date(), fill_method)
+        if use_cache:
+            __cache[currency+"_"+datapoint_name] = toreturn
+        return toreturn
+
+    except FileNotFoundError:
+        raise PMException("Could not find time series for currency {currency}".format(currency = currency))
+
+def get_fx(currency:str, fx_date:date, datapoint_name:str=DEFAULT_CURRENCY_DATAPOINT, fill_method=fill.FORWARDFILL, use_cache=True):
+    return get_fx_timeseries(currency, datapoint_name, fill_method, use_cache).get(fx_date)
 
 def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
     '''
@@ -69,14 +97,14 @@ def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARD
         # read it from the database
         (ticker, exchange) = full_ticker.split('.')
         name = datapoint_name
-        path = os.path.join(get_database(), exchange, ticker, name)
+        path = os.path.join(get_equity_database(), exchange, ticker, name)
         a = np.load(path+'.npy')
         #Read start and end dates
-        path = os.path.join(get_database(), exchange, ticker)
+        path = os.path.join(get_equity_database(), exchange, ticker)
         with open(os.path.join(path, datapoint_name+".meta")) as metafile:
             meta = json.load(metafile)
-            start_date = datetime.strptime(meta["base_date"], '%Y-%m-%d')
-            end_date = datetime.strptime(meta["last_date"], '%Y-%m-%d')
+            start_date = datetime.strptime(meta["base_date"], __date_format)
+            end_date = datetime.strptime(meta["last_date"], __date_format)
 
         # Create the time series intance to return
         toreturn:TimeSeries =  TimeSeries(a, start_date.date(), end_date.date(), fill_method)
@@ -90,7 +118,7 @@ def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARD
 def get_ticker(full_ticker:str)->Ticker:
     #read ticker details from datbase
     (ticker, exchange) = full_ticker.split('.')
-    idfile = os.path.join(get_database(), exchange, ticker, "id")
+    idfile = os.path.join(get_equity_database(), exchange, ticker, "id")
     with open(idfile) as idf:
         td = json.load(idf)
     return Ticker(type=td['Type'], code=td['Code'], isin=td['Isin'], name=td['Name'], country=td['Country'], exchange=td['Exchange'], currency=td['Currency'])
@@ -120,6 +148,10 @@ class UnitTestData(unittest.TestCase):
     
     def test_hot_search(self):
         self.assertEqual(len(search("MICROSOFT")), 1)
+
+    def test_currency(self):
+        self.assertAlmostEqual(get_fx_timeseries("EUR")[0], 0.99, delta=0.01)
+        self.assertAlmostEqual(get_fx_timeseries("EUR").get(date(2022,11,8)), 0.993, delta = 0.001)
 
 if __name__ == '__main__':
     init()

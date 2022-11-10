@@ -8,6 +8,7 @@ from PMExceptions import PMException
 from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY, Ticker,  check_currency
 from Positions import Positions
 from TimeSeries import TimeSeries
+from pmdata import get_fx
 from pmdata import get_timeseries
 
 
@@ -164,9 +165,26 @@ class InstrumentValuator:
 
     def convert_to_target_currency(self, value:number, valdate:date, source_currency:Currency=DEFAULT_CURRENCY)->number:
         if(source_currency != self.target_currency):
-            #TODO support currency conversion
-            raise PMException("Currency conversions are not yet supported")
+            # Value the instrument to USD and then from USD to the target currency
+            value_usd = value
+            if(source_currency != Currency("USD")):
+                value_usd = self.__convert_to_usd(value, source_currency, valdate)
+
+            if(self.target_currency != Currency('USD')):
+                return self.__convert_usd_to_target(value_usd, self.target_currency, valdate)
+            return value_usd
         return value
+
+
+    def __convert_usd_to_target(self, value:number, target_currency:Currency, valdate:date)->number:
+        fx = get_fx(target_currency.get_identifier(), valdate)
+        return value * fx
+
+    def __convert_to_usd(self, value:number, source_currency:Currency, valdate:date)->number:
+        # Get the FX rate
+        fx = get_fx(source_currency.get_identifier(), valdate)
+        return value/fx
+
 
     @staticmethod
     def valuator(portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency, **valuator_args):
@@ -187,7 +205,7 @@ class EquityValuator(InstrumentValuator):
 
     def get_valuation(self, valdate:date)->number:
         closing_price = get_timeseries(full_ticker=self.pi.id.get_full_ticker(), datapoint_name=self.valuation_data_point).get(valdate)
-        return self.convert_to_target_currency(closing_price*self.portfolio.get_position_amount(self.pi), valdate, self.target_currency)
+        return self.convert_to_target_currency(closing_price*self.portfolio.get_position_amount(self.pi), valdate, self.pi.id.get_currency())
 
 
 class CashValuator(InstrumentValuator):
@@ -195,7 +213,7 @@ class CashValuator(InstrumentValuator):
         InstrumentValuator.__init__(self, portfolio,pi, target_currency)
 
     def get_valuation(self, valdate:date)->number:
-        return self.convert_to_target_currency(self.portfolio.get_position_amount(self.pi), valdate, self.target_currency)
+        return self.convert_to_target_currency(self.portfolio.get_position_amount(self.pi), valdate, self.pi.id)
 
 class IPorfolioValuator:
   
@@ -364,7 +382,12 @@ class UnitTestPortfolio(unittest.TestCase):
         p.add('USD', 2000)
         self.assertEqual(p.get_cash('USD'), 7000)
 
-        
+    def test_multiple_currencies(self):
+        p:Portfolio = Portfolio()
+        p.add("USD", 10000)
+        p.add("CHF", 50000)
+        self.assertAlmostEqual((PortfolioValuator(portfolio=p).get_valuation(date.fromisoformat("2022-11-08"))), 60699, delta=1)
+
 
     def test_cash_short(self):
         p:Portfolio = Portfolio()
@@ -485,12 +508,12 @@ class UnitTestValuations(unittest.TestCase):
         p.add('USD', 67000)
         p.add('CHF', 480000)
         pg.add(p, "CASH PORTFOLIO GROUP")
-        self.assertEqual(pg.valuator().get_valuation(date.fromisoformat("2022-09-01")),547000)
+        self.assertAlmostEqual(pg.valuator().get_valuation(date.fromisoformat("2022-09-01")),557246, delta=1)
         p2:Portfolio = Portfolio()
         p2.buy('MSFT', 10)
         p2.buy('MSFT', 20)
         pg.add(p2)
-        self.assertAlmostEqual(pg.valuator().get_valuation(date.fromisoformat("2022-09-01")), 554811, delta=1)
+        self.assertAlmostEqual(pg.valuator().get_valuation(date.fromisoformat("2022-09-01")), 565058, delta=1)
 
  #   @time_func
     def test_get_end_date(self):
@@ -530,6 +553,16 @@ class UnitTestValuations(unittest.TestCase):
         v:IndexValuator = IndexValuator(portfolio=p, base_date=date.fromisoformat("2010-01-01"), base_value=100)
         ts:ndarray = v.get_index_valuations(end_date=date.fromisoformat("2021-12-31")).get_full_time_series()
         self.assertAlmostEqual(ts[len(ts)-1], 1574, delta=0.1)
+
+    def test_currency_conversion(self):
+        p:Portfolio = Portfolio()
+        p.buy('MSCI', 10)
+        v:PortfolioValuator = PortfolioValuator(portfolio=p)
+        value:number = v.get_valuation(valdate=date.fromisoformat("2022-09-01"))
+        self.assertAlmostEqual(value, 4569, delta=1)
+        value_chf:number = v.get_valuation(valdate=date.fromisoformat("2022-09-01"), ccy="CHF")
+        self.assertAlmostEqual(value_chf, 4473, delta=1)
+
 
 if __name__ == '__main__':
     unittest.main()

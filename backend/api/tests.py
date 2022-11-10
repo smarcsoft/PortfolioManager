@@ -27,7 +27,7 @@ def suite():
     suite.addTest(UnitTestPortfolio('test_portfolio_group2'))
     suite.addTest(UnitTestPortfolio('test_portfolio_tags'))
     suite.addTest(UnitTestPortfolio('test_multiple_currencies'))
-    suite.addTest(UnitTestPortfolio('test_currency_conversion'))
+    suite.addTest(UnitTestValuations('test_currency_conversion'))
     suite.addTest(UnitTestValuations('test_get_valuations'))
     suite.addTest(UnitTestValuations('test_get_start_date'))
     suite.addTest(UnitTestValuations('test_portfolio'))

@@ -28,6 +28,9 @@ def init(database_location:str = None):
 
 
 def search(symbol_name:str, market:str='US', type:str = "Common Stock")->list[Ticker]:
+    '''
+    Searches for the instrument containing symbol_name in its name for the market specified
+    '''
     if not __tickercache:
         __init_ticker_cache(market)
     if not __tickercache[market]:
@@ -76,6 +79,7 @@ def get_fx_timeseries(currency:str, datapoint_name:str=DEFAULT_CURRENCY_DATAPOIN
 
 def get_fx(currency:str, fx_date:date, datapoint_name:str=DEFAULT_CURRENCY_DATAPOINT, fill_method=fill.FORWARDFILL, use_cache=True):
     return get_fx_timeseries(currency, datapoint_name, fill_method, use_cache).get(fx_date)
+    
 
 def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
     '''
@@ -149,9 +153,16 @@ class UnitTestData(unittest.TestCase):
     def test_hot_search(self):
         self.assertEqual(len(search("MICROSOFT")), 1)
 
+    def test_hot_search2(self):
+        self.assertEqual(len(search("Property")), 37)
+
     def test_currency(self):
         self.assertAlmostEqual(get_fx_timeseries("EUR")[0], 0.99, delta=0.01)
-        self.assertAlmostEqual(get_fx_timeseries("EUR").get(date(2022,11,8)), 0.993, delta = 0.001)
+        self.assertAlmostEqual(get_fx_timeseries("EUR").get(date(2022,11,8)), 0.9981, delta = 0.001)
+
+    def test_crypto(self):
+        self.assertAlmostEqual(get_fx_timeseries("BTC").get(date(2022,11,9)), 6.2969199843932e-05, delta = 1e-05)
+        self.assertAlmostEqual(get_fx_timeseries("ETH").get(date(2022,11,9)), 1/1100, delta = 0.001)
 
 if __name__ == '__main__':
     init()

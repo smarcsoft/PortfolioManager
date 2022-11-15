@@ -32,7 +32,7 @@ def __reset_stats():
 def __display_stats(logger):
     logger.info("Number of currencies processed:{ccy_number}/{total_ccy_number}".format(ccy_number = len(__stats), total_ccy_number = number_of_currencies_to_process))
 
-def __store_fx_data(currency:str,  fx_data:list):
+def __store_fx_data(currency:str,  fx_data:list, fiat:bool):
     '''
     Stores the fundamental data of the ticker passed in arguments.
 
@@ -44,13 +44,13 @@ def __store_fx_data(currency:str,  fx_data:list):
     '''
     #Check if file exists
     db_loc = get_config('DB_LOCATION', configfile=__config_file)
-    file_loc = os.path.join(db_loc, "FX", currency)
+    file_loc = os.path.join(db_loc, "FX", currency.split('-')[0])
     #create directories if missing
     os.makedirs(file_loc, exist_ok=True) 
 
     # Create the meta file for each datapoint
     # Then create each numpy arrays
-    (first, last, open, high, low, close, adjusted_close) = __create_arrays(fx_data)
+    (first, last, open, high, low, close, adjusted_close) = __create_arrays(fx_data, fiat)
     __store(file_loc, open, first, last, "open")
     __store(file_loc,high, first, last, "high")
     __store(file_loc,low, first, last, "low")
@@ -76,7 +76,7 @@ def __store_meta(filename:str, first:datetime.date, last:datetime.date, field:st
         towrite["name"]=field
         fd.write(json.dumps(towrite))
 
-def __create_arrays(fx_data:list):
+def __create_arrays(fx_data:list, fiat:bool):
     start_date = datetime.datetime.strptime(fx_data[0]['date'], __date_format).date()
     end_date = datetime.datetime.strptime(fx_data[len(fx_data) - 1]['date'], __date_format).date()
     opening = np.zeros((end_date - start_date).days + 1)
@@ -84,19 +84,26 @@ def __create_arrays(fx_data:list):
     low = np.zeros((end_date - start_date).days + 1)
     close = np.zeros((end_date - start_date).days + 1)
     adjusted_close = np.zeros((end_date - start_date).days + 1)
-    (opening, high, low, close, adjusted_close) = __fill_array(fx_data, start_date, opening, high, low, close, adjusted_close)
+    (opening, high, low, close, adjusted_close) = __fill_array(fx_data, start_date, opening, high, low, close, adjusted_close, fiat)
     return (start_date, end_date, opening, high, low, close, adjusted_close)
 
-def __fill_array(fx_data:list, start_date:datetime.date, open:np.ndarray, high:np.ndarray, low:np.ndarray, close:np.ndarray, adjusted_close:np.ndarray):
+def __fill_array(fx_data:list, start_date:datetime.date, open:np.ndarray, high:np.ndarray, low:np.ndarray, close:np.ndarray, adjusted_close:np.ndarray, fiat:bool):
     for fx in fx_data:
         date = datetime.datetime.strptime(fx['date'], __date_format).date()
         #Get the index in the array
         index = (date - start_date).days
-        open[index]=fx["open"]
-        high[index]=fx["high"]
-        low[index]=fx["low"]
-        close[index]=fx["close"]
-        adjusted_close[index]=fx["adjusted_close"]
+        if(fiat):
+            open[index]=fx["open"]
+            high[index]=fx["high"]
+            low[index]=fx["low"]
+            close[index]=fx["close"]
+            adjusted_close[index]=fx["adjusted_close"]
+        else:
+            open[index]=1/fx["open"]
+            high[index]=1/fx["high"]
+            low[index]=1/fx["low"]
+            close[index]=1/fx["close"]
+            adjusted_close[index]=1/fx["adjusted_close"]
     return (open, high, low, close, adjusted_close)
 
 def update(fx:dict, v:np.ndarray, field:str, index):
@@ -120,7 +127,12 @@ def update_stats(ccy:str):
 
 def process_currency(client, ccy:str):
     ts = client.get_prices_eod(ccy.upper()+".FOREX")
-    __store_fx_data(ccy, ts)
+    __store_fx_data(ccy, ts, True)
+    update_stats(ccy)
+
+def process_crypto_currency(client, ccy:str):
+    ts = client.get_prices_eod(ccy.upper()+".CC")
+    __store_fx_data(ccy, ts, False)
     update_stats(ccy)
 
 
@@ -142,6 +154,25 @@ def update_db(client, currencies:str):
         except Exception as e:
             __logger.error("Could not process currency {currency}:{message}".format(currency=ccy, message=str(e)))
 
+def update_db_cryptos(client, currencies:str):
+    '''
+    Populate the file database with crypto data
+    Arguments are:
+    . client: API client of the market data API
+    . comma separated list of currencies to process
+    '''
+    global number_of_currencies_to_process
+
+    __reset_stats()
+    #Get the list of currencies
+    ccys = currencies.split(',')
+    number_of_currencies_to_process += len(ccys)
+    for ccy in ccys:
+        try:
+            process_crypto_currency(client, ccy)
+        except Exception as e:
+            __logger.error("Could not process currency {currency}:{message}".format(currency=ccy, message=str(e)))
+
 def run_forex_data_feeder(configfile:str):
     '''
     Run the feeder for the list of exchanges passed in argument
@@ -150,6 +181,7 @@ def run_forex_data_feeder(configfile:str):
     api_key = get_oed_apikey(configfile)
     client = EodHistoricalData(api_key)
     update_db(client, get_config("CURRENCIES"))
+    update_db_cryptos(client, get_config("CRYPTO_CURRENCIES"))
     display_stats()
 
 if __name__ == '__main__':

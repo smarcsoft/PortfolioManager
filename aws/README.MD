@@ -70,7 +70,7 @@ restart_proxy.sh: Restarts the reverse proxy
 Main run script able to run the update process locally. Prefer run_update.sh over run.sh.
 Examples: 
 run.sh -c or run.sh --controller to run the controller.
-run.sh --controller --configfile=config/controller_us.json will run the controller for the US market
+./run.sh --controller --config config/controller_us.json --batch Batch_01
 
 ## run_update.sh
 Spawns the update process on the AWS compute server

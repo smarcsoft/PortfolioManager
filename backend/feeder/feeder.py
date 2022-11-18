@@ -471,21 +471,23 @@ def build_exchange_list(exchange_list:list):
         to_return.append((exchange, -1, 1, 0))
     return to_return
 
-def run_feeder_batch(batch_name:str, configfile):
+def run_feeder_batch(batch_name:str, configfile:str, batch_definition_file:str):
     '''
     Run the feeder for the list of exchanges in batch identified by batch_name
+    configfile is the usual pm.conf or equivalent configuration file
+    batch_definition_file is the json file containing the batch definitions.
     '''
     init(None, configfile)
     __logger.info("Running batch feeder process %s", batch_name)
     api_key = get_oed_apikey()
     client = EodHistoricalData(api_key)
-    with open(configfile, "r") as config_file:
-        config = json.load(config_file)
+    with open(batch_definition_file, "r") as batch_file:
+        config = json.load(batch_file)
     exchange_list = __get_exchange_list(config, batch_name)
     update_db(client, exchange_list, False)
     display_stats(__stats)
 
-def run_feeder(exchange_list, update:bool, as_of_date:date=date.today()):
+def run_feeder(exchange_list, configfile:str,  update:bool, as_of_date:date=date.today()):
     '''
     Run the feeder for the list of exchanges passed in argument
     Each element of the list is just a list of exchange codes
@@ -498,8 +500,8 @@ def run_feeder(exchange_list, update:bool, as_of_date:date=date.today()):
 
 
 class UnitTestFeeder(unittest.TestCase):
-    def setUp(self):
-        init(None, "tests/config/pm.conf")
+
+    TEST_CONFIG="tests/config/pm.conf"
     
     def test__get_last_date(self):
         self.assertEqual(get_last_date("NESN.VX"), date(2022,11,10))
@@ -508,25 +510,26 @@ class UnitTestFeeder(unittest.TestCase):
         self.assertEqual(get_last_date("NESN.VX"), date(2022,11,11))
 
     def emptyvx(self):
+        init(None, self.TEST_CONFIG)
         loc = get_config("DB_LOCATION")
         shutil.rmtree(os.path.join(loc, "EQUITIES/VX"))
 
     def test_full_load(self):
         self.emptyvx()
         exchange_list = build_exchange_list(['VX'])
-        run_feeder(exchange_list, False,date(2022,11,10))
+        run_feeder(exchange_list, self.TEST_CONFIG, False,date(2022,11,10))
         self.assertTrue(True)
 
     def test_update_load(self):
         exchange_list = build_exchange_list(['VX'])
-        run_feeder(exchange_list, True,date(2022,11,11))
+        run_feeder(exchange_list, self.TEST_CONFIG, True,date(2022,11,11))
         self.assertTrue(True)
 
 if __name__ == '__main__':
     try:
         exchange_list,configfile,update = process_arguments()
         exchange_list = build_exchange_list(exchange_list)
-        run_feeder(exchange_list, update)
+        run_feeder(exchange_list, configfile, update)
     except Exception as e:
         print("Fatal error:", str(e))
         __logger.exception("Fatal error:%s", str(e))

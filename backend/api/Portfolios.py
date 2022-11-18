@@ -4,7 +4,7 @@ import unittest
 from numpy import ndarray, number
 import numpy
 import pandas as pd
-from PMExceptions import PMException
+from exceptions import PMException
 from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY, Ticker,  check_currency
 from Positions import Positions
 from TimeSeries import TimeSeries
@@ -231,7 +231,7 @@ class PortfolioGroupValuator(IPorfolioValuator):
 
     def get_valuations(self, start_date:date=None, end_date:date=None, dp_name=DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->TimeSeries:
         #For each portfolio in the group, value it
-        ts:TimeSeries = None
+        ts:TimeSeries|None = None
         for (i,portfolio) in enumerate(self.portfolio_group):
             pv = PortfolioValuator(portfolio)
             if(i==0):
@@ -289,7 +289,7 @@ class PortfolioValuator(IPorfolioValuator):
 
     def get_start_date(self, dp_name:str=DEFAULT_VALUATION_DATAPOINT):
         # Check the earliest start date of all instruments
-        start_date:date = None
+        start_date:date|None = None
         for position_identifier in self.portfolio.get_positions():
             # Ignore cash positions to compute earliest start date of the portfolio
             if(position_identifier.type == CASH): continue
@@ -302,7 +302,7 @@ class PortfolioValuator(IPorfolioValuator):
 
 
     def get_end_date(self, dp_name:str=DEFAULT_VALUATION_DATAPOINT):
-        end_date:date = None
+        end_date:date|None = None
         for position_identifier in self.portfolio.get_positions():
             # Ignore cash positions to compute earliest start date of the portfolio
             if(position_identifier.type == CASH): continue
@@ -345,6 +345,11 @@ class UnitTestPortfolio(unittest.TestCase):
         self.assertEqual(p.get_shares('MSFT'), 40)
         self.assertEqual(p.get_shares('CSCO'), 20)
 
+    def test_cryptos(self):
+        p:Portfolio = Portfolio()
+        p.add('ETH', 10)
+        self.assertEqual(p.get_cash('ETH'), 10)
+
     def test_positions(self):
         p:Portfolio = Portfolio()
         p.buy('MSFT', 10)
@@ -386,7 +391,8 @@ class UnitTestPortfolio(unittest.TestCase):
         p:Portfolio = Portfolio()
         p.add("USD", 10000)
         p.add("CHF", 50000)
-        self.assertAlmostEqual((PortfolioValuator(portfolio=p).get_valuation(date.fromisoformat("2022-11-08"))), 60699, delta=1)
+        # The exchange rate on November 8 is 0.9889 (USDCHF= <-> CHF= 0.9889 = 1 USD is 0.9889 CHF)
+        self.assertAlmostEqual((PortfolioValuator(portfolio=p).get_valuation(date.fromisoformat("2022-11-08"))), 60561, delta=1)
 
 
     def test_cash_short(self):
@@ -562,6 +568,25 @@ class UnitTestValuations(unittest.TestCase):
         self.assertAlmostEqual(value, 4569, delta=1)
         value_chf:number = v.get_valuation(valdate=date.fromisoformat("2022-09-01"), ccy="CHF")
         self.assertAlmostEqual(value_chf, 4473, delta=1)
+
+    def test_mac_portfolio(self):
+        my_portfolio:Portfolio = Portfolio()
+        my_portfolio.buy('MSCI', 2578, tags={'PERFORMANCE SHARES'}) #Performance shares
+        my_portfolio.buy('MSCI', 3916, tags={'RESTRICTED SHARES'}) #Restricted shares
+        my_portfolio.buy('MSCI', 3916, tags={'STOCK OPTIONS'}) #Stock options
+        my_portfolio.buy('MSCI', 807, tags={'BROADRIDGE SHARES'})  #Bradridge shares
+        my_portfolio.buy('MSCI', 3000, tags={'MORGAN STANLEY SHARES'})  #Bradridge shares
+        my_portfolio.add('CHF', 14845)  # BCGE
+        my_portfolio.add('EUR', 5604)   # N26
+        my_portfolio.add('EUR', 1169)   # Boursorama
+        my_portfolio.add('CHF', 401598) # UBS
+        my_portfolio.add('CHF', 37640)  # Liechsteinstein
+        with_cash = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-09-01"))
+        my_portfolio.add('ETH', 32.9123, tags={'CRYPTOS'})
+        my_portfolio.add('BTC', 2.2347, tags={'CRYPTOS'})
+        my_portfolio.add('DOT', 1214.4988, tags={'CRYPTOS'})
+        with_cryptos = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-09-01"))
+        self.assertAlmostEqual(with_cryptos - with_cash, 105911, delta=1)
 
 
 if __name__ == '__main__':

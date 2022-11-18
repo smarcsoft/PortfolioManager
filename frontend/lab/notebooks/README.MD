@@ -2,15 +2,19 @@
 These notebooks demonstrates what can be done in the Portfolio Manager data science platform
 
 ## Stock and mutual fund data
-Take a look at sample_timeseries to access time series data
-Take a look at sample_fundamental_data to access fundamental data
+sample_timeseries demonstrates hot to access time series data
+sample_fundamental_data accesses fundamental data
 
-## Seach capabilities
-Take a look at sample_search to find out how to find instrument metadata (tickers, isins etc...).
+## Search capabilities
+sample_search finds out how to find instrument metadata (tickers, isins etc...).
 
 ## Portfolio
-Take a look at sample_portfolio to find out how to construct a portfolio and get its valuations over time
+sample_portfolio finds out how to construct a portfolio and group portfolio together
+sample_portfolio_valuation gets its valuations over time
 
 ## Portfolio Index
-Take a look at sample_portfolio_index to find out how to rebase a portfolio and get its performance over time.
+sample_portfolio_index demonstrates how to rebase a portfolio and get its performance over time.
+
+## Multi-currency support
+sample_portfolio_multicurrency_valuation demonstrates the multi currency capabilities and how to valuate in multiple currencies
 

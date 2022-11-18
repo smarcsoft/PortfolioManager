@@ -1,6 +1,6 @@
 import abc
 import unittest
-from PMExceptions import PMException
+from exceptions import PMException
 
 
 #List of instrument types supported by the system
@@ -9,11 +9,21 @@ EQUITY=2 #Can be stocks, mutual funds, ETFs
 InstrumentType=int #One of the instrument types numbers above
 
 supported_currencies =("USD","EUR", "RUB", "GBP", "CNY", "JPY", "SGD", "INR", "CHF", "AUD", "CAD", "HKD", "MYR", "NOK", "NZD", "ZAR","SEK", "DKK", "BRL", "ZAC", "MXN", "TWD", "KRW", "CLP", "CZK", "HUF", "IDR", "ISK", "MXV", "PLN", "TRY", "UYU", "THB", "SAR", "ILS")
+supported_crypto_currencies = ("ADA","BCH","BTC","ETH","DOT","USDT","BNB","USDC","XRP","SOL","DOGE")
 
-def check_currency(currency:str):
-    if currency not in supported_currencies:
-        raise PMException("Invalid currency ({currency})".format(currency=currency))
-    return True
+def check_currency(currency:str)->bool:
+    '''
+    Returns True if FIAT currency
+    Returns False if cryto currency
+    Returns an exception is unsupported.
+    '''
+    if (currency in supported_currencies): 
+        return True
+
+    if (currency in supported_crypto_currencies): 
+        return False
+    
+    raise PMException("Invalid currency ({currency})".format(currency=currency))
 
 class IInstrumentIdentifier:
 
@@ -23,8 +33,14 @@ class IInstrumentIdentifier:
 
 class Currency(IInstrumentIdentifier):
     def __init__(self, currency:str="USD"):
-        check_currency(currency)
+        self._fiat = check_currency(currency)
         self._currency = currency
+
+    def is_fiat(self)->bool:
+        return self._fiat
+
+    def is_cryto(self)->bool:
+        return not self.is_fiat()
 
     def get_identifier(self)->str:
         return self._currency
@@ -110,7 +126,7 @@ class Ticker(IInstrumentIdentifier):
         return self._isin
 
     def __repr__(self):
-        return "Ticker {code} for company {name} with isin {isin}".format(code = self._code, name = self._name if len(self._name) != 0 else "UNKNOWN", isin = self._isin if len(self._isin) != 0 else "UNKNOWN")
+        return "Ticker {code} for company {name} with isin {isin}".format(code = self._code, name = self._name if len(self._name) != 0 else "UNKNOWN", isin = self._isin if (self._isin != None) and (len(self._isin) != 0) else "UNKNOWN")
 
 
 class PositionIdentifier:

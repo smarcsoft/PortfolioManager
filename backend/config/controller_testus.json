@@ -1,0 +1,14 @@
+[
+    {
+        "Batch_Name": "Batch_01",
+        "Remaining_size": 1310,
+        "Exchanges": [
+            {
+                "Code": "US",
+                "Part": 10,
+                "Start": 47241,
+                "Size": 5251
+            }
+        ]
+    }
+]

@@ -14,9 +14,14 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       ;;
     --type)
-	TYPE="$2" #price or fundamental_data
-	shift
-	shift
+      TYPE="$2" #price or fundamental_data
+      shift
+      shift
+      ;;
+     --batch)
+      BATCH="--batch $2"
+      shift
+      shift
       ;;
     --config)
       CONFIGFILE="$2"
@@ -52,12 +57,12 @@ fi
 echo "Executing feeder on $TYPE..."
 #Get the public IP of the compute server
 backend_ip=$(aws ec2 describe-instances --instance-ids i-0a3774d4c3e971e64 --query Reservations[].Instances[].PublicIpAddress[] --output text)
+
 if [ $NOEXEC -eq 1 ]
 then
     echo "ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE $BATCH"
 else
-    ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/a\
-ws/run.sh --controller --type $TYPE --config $CONFIGFILE $BATCH
+    ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE $BATCH
 fi
  
 if [ $NO_INFRA -eq 0 ]

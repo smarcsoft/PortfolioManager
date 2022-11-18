@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from numpy import ndarray, number
 import pandas as pd
-from PMExceptions import PMException
+from exceptions import PMException
 
 fill = types.SimpleNamespace()
 fill.FORWARDFILL = 1

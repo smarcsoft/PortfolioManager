@@ -8,7 +8,7 @@ from TimeSeries import UnitTestTimeSeries
 from pmdata import UnitTestData
 
 
-def suite():
+def apitestsuite():
     suite = unittest.TestSuite()
     suite.addTest(UnitTestFundamentalData('test_load'))
     suite.addTest(UnitTestFundamentalData('test_missing'))
@@ -17,6 +17,8 @@ def suite():
     suite.addTest(UnitTestData('test_multiple_search'))
     suite.addTest(UnitTestData('test_hot_search'))
     suite.addTest(UnitTestData('test_currency'))
+    suite.addTest(UnitTestData('test_crypto'))
+    suite.addTest(UnitTestData('test_hot_search2'))
     suite.addTest(UnitTestPortfolio('test_buy'))
     suite.addTest(UnitTestPortfolio('test_positions'))
     suite.addTest(UnitTestPortfolio('test_sell_short'))
@@ -27,6 +29,7 @@ def suite():
     suite.addTest(UnitTestPortfolio('test_portfolio_group2'))
     suite.addTest(UnitTestPortfolio('test_portfolio_tags'))
     suite.addTest(UnitTestPortfolio('test_multiple_currencies'))
+    suite.addTest(UnitTestPortfolio('test_cryptos'))
     suite.addTest(UnitTestValuations('test_currency_conversion'))
     suite.addTest(UnitTestValuations('test_get_valuations'))
     suite.addTest(UnitTestValuations('test_get_start_date'))
@@ -37,6 +40,7 @@ def suite():
     suite.addTest(UnitTestValuations('test_dp'))
     suite.addTest(UnitTestValuations('test_cash'))
     suite.addTest(UnitTestValuations('test_index_valuation'))
+    suite.addTest(UnitTestValuations('test_mac_portfolio'))
     suite.addTest(UnitTestTicker('test_ticker'))
     suite.addTest(UnitTestTicker('test_ticker_equal'))
     suite.addTest(UnitTestTicker('test_position_identifier_hash'))
@@ -53,4 +57,4 @@ def suite():
 
 if __name__ == '__main__':
     runner = unittest.TextTestRunner()
-    runner.run(suite())
+    runner.run(apitestsuite())

@@ -5,6 +5,7 @@ NO_INFRA=0
 CONFIGFILE="config/controller.json"
 TYPE="price"
 BATCH=""
+NOEXEC=0
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -27,6 +28,15 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    --batch)
+      BATCH="--batch $2"
+      shift
+      shift
+      ;;
+    --no-exec)
+      NOEXEC=1
+      shift
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -47,7 +57,13 @@ fi
 echo "Executing feeder on $TYPE..."
 #Get the public IP of the compute server
 backend_ip=$(aws ec2 describe-instances --instance-ids i-0a3774d4c3e971e64 --query Reservations[].Instances[].PublicIpAddress[] --output text)
-ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE $BATCH
+
+if [ $NOEXEC -eq 1 ]
+then
+    echo "ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE $BATCH"
+else
+    ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE $BATCH
+fi
  
 if [ $NO_INFRA -eq 0 ]
 then

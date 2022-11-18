@@ -1,5 +1,9 @@
+import glob
 import sys
 import os
+import unittest
+
+from FundamentalData import FundamentalData
 sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(),'..','utils'))
 from eod import EodHistoricalData
@@ -8,7 +12,7 @@ import logging.config
 import logging.handlers
 import json
 import datetime
-from config import get_config, process_arguments
+from config import DEFAULT_CONFIG_FILE, DEFAULT_LOGGING_CONFIG_FILE, get_config, init_config, process_arguments
 from exceptions import FeederException
 from feedutils import get_ticker_slice
 
@@ -19,16 +23,10 @@ TickerError = tuple[Ticker, Error]
 SuccessFail = dict[str, list[TickerError]] #{"Success":("MSFT", ""), ("CSCO","")..., "Failed":("MSCI","Error while***"), ("GYTR", "Error while***")...}
 Exchange = str
 Statistics = dict[Exchange, SuccessFail]
-
-logging.config.fileConfig("config/logging.conf")
-__logger = logging.getLogger('fdfeeder')
-
 __stats:Statistics={}
 
-__config_file = "config/pm.conf"
-
 def get_oed_apikey() -> str:
-    return get_config('EOD_API_KEY', configfile=__config_file)
+    return get_config('EOD_API_KEY')
 
 
 def __update_stat_ticker_error(exchange:dict, symbol:str, e:Exception):
@@ -75,8 +73,8 @@ def __store_fundamental_data(exchange:str, ticker:str, fundamental_data:dict):
 
     '''
     #Check if file exists
-    db_loc = get_config('DB_LOCATION', configfile=__config_file)
-    file_loc = os.path.join(db_loc, exchange, ticker)
+    db_loc = get_config('DB_LOCATION')
+    file_loc = os.path.join(db_loc, 'EQUITIES', exchange, ticker)
     with open(file_loc+'/fd.json', 'wt') as fd:
         fd.write(json.dumps(fundamental_data))
 
@@ -104,7 +102,7 @@ def display_stats():
     logger = logging.getLogger("summary")
     logger.setLevel(logging.INFO)
     d = datetime.datetime.now()
-    handler = logging.FileHandler(get_config("LOG_FILE_LOC", configfile=__config_file)+"/fdfeeder_run_{yyyy}-{mm:02d}-{dd:02d}_{hh:02d}_{mmm:02d}_{ss:02d}.log".format(yyyy=d.year, mm=d.month, dd=d.day, hh=d.hour, mmm=d.minute, ss=d.second))
+    handler = logging.FileHandler(get_config("LOG_FILE_LOC")+"/fdfeeder_run_{yyyy}-{mm:02d}-{dd:02d}_{hh:02d}_{mmm:02d}_{ss:02d}.log".format(yyyy=d.year, mm=d.month, dd=d.day, hh=d.hour, mmm=d.minute, ss=d.second))
     formatter = logging.Formatter('%(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -118,7 +116,7 @@ def get_tickers_from_db(exchange:dict)->list[str]:
     Warning: These are not fully qualified tickers
     '''
     try:
-        db_loc = get_config('DB_LOCATION', configfile=__config_file)
+        db_loc = get_config('DB_LOCATION')
         toread = os.path.join(db_loc, exchange)
         tickers = os.listdir(toread)
         return tickers
@@ -213,7 +211,7 @@ def __get_exchange_list(config:dict, batch_name:str)->list:
         exchange_list.append(exch)
     return exchange_list
 
-def __build_exchange_list(exchange_list:list):
+def build_exchange_list(exchange_list:list):
     '''
     Take a list of exchanges and augment it with meta data
     '''
@@ -260,10 +258,46 @@ def run_fundamental_data_feeder(exchange_list):
     update_db(client, exchange_list)
     display_stats()
 
+
+def init(logger = None, configfile:str=DEFAULT_CONFIG_FILE):
+    global __logger
+    if(logger != None):
+        __logger = logger
+    else:
+        init_config(None, configfile)
+        # Get the logging subsystem configuration 
+        log_conf_file_loc = get_config("LOGGING_CONFIGURATION")
+        if(len(log_conf_file_loc) == 0):
+            #Fall back to detault
+            log_conf_file_loc = DEFAULT_LOGGING_CONFIG_FILE
+        if(os.path.exists(log_conf_file_loc)):
+            logging.config.fileConfig(log_conf_file_loc)
+            __logger = logging.getLogger('feeder')
+        else:
+            raise FeederException("Cannot initialize logging subsystem with " + log_conf_file_loc+": The file does not exist")
+
+
+class UnitTestFDFeeder(unittest.TestCase):
+    def setUp(self):
+        init(None, "tests/config/pm.conf")
+    
+    def test_fd_load(self):
+        # Remove previously loaded fundamental data from the database
+        for f in glob.glob('/path/**/jd.json', recursive=True):
+            os.remove(f)
+        exchange_list = build_exchange_list(['VX'])
+        run_fundamental_data_feeder(exchange_list)
+        self.assertTrue(True)
+
+    def check_fd_load(self):
+        fd:FundamentalData = FundamentalData.load("NESN.VX")
+        self.assertTrue(len(fd.general()) != 0)
+
 if __name__ == '__main__':
     try:
         exchange_list,configfile,update = process_arguments()
-        exchange_list = __build_exchange_list(exchange_list)
+        init(None, configfile=configfile)
+        exchange_list = build_exchange_list(exchange_list)
         run_fundamental_data_feeder(exchange_list)
     except Exception as e:
         print("Fatal error:", str(e))

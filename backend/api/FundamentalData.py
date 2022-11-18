@@ -7,7 +7,7 @@ sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(),'utils'))
 sys.path.append(os.path.join(os.getcwd(),'../../..','utils'))
 from feedutils import get_equity_database
-from PMExceptions import PMException
+from exceptions import PMException
 
 class FundamentalData:
     def __init__(self, fd:dict) -> None:

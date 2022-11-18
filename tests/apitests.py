@@ -8,7 +8,7 @@ from TimeSeries import UnitTestTimeSeries
 from pmdata import UnitTestData
 
 
-def suite():
+def apitestsuite():
     suite = unittest.TestSuite()
     suite.addTest(UnitTestFundamentalData('test_load'))
     suite.addTest(UnitTestFundamentalData('test_missing'))
@@ -57,4 +57,4 @@ def suite():
 
 if __name__ == '__main__':
     runner = unittest.TextTestRunner()
-    runner.run(suite())
+    runner.run(apitestsuite())

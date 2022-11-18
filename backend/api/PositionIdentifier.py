@@ -1,6 +1,6 @@
 import abc
 import unittest
-from PMExceptions import PMException
+from exceptions import PMException
 
 
 #List of instrument types supported by the system

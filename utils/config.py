@@ -1,11 +1,13 @@
 import argparse
 import logging
 import logging.config
+import os
+from exceptions import PMException
 
-
-logging.config.fileConfig("config/logging.conf")
-__logger = logging.getLogger('config')
-
+DEFAULT_CONFIG_FILE="config/pm.conf"
+DEFAULT_LOGGING_CONFIG_FILE="config/logging.conf"
+__configfile = DEFAULT_CONFIG_FILE
+__logger = None
 __config = {}
 
 def __parse_line(line:str):
@@ -18,12 +20,12 @@ def __read_configuration(configfile:str):
     Returns a dictionary containing the entry of the configuration file specified in arguments
     '''
     config = {}
-    __logger.info("Reading configuration file %s...", configfile)
+    if(__logger != None): __logger.info("Reading configuration file %s...", configfile)
     with open(configfile, "rt") as configfile:
         for line in configfile:
             if (len(line.strip())> 0) and (not line.strip().startswith('#')):
                 (key,value) = __parse_line(line)
-                __logger.debug("Found %s -> %s", key, value.strip())
+                if(__logger != None): __logger.debug("Found %s -> %s", key, value.strip())
                 config[key.strip()] = value.strip()
     return config
 
@@ -49,7 +51,7 @@ def process_arguments():
     if hasattr(args,"d"): debug_level = args.d 
     if hasattr(args,"debug"): debug_level = args.debug 
     if hasattr(args,"log"): debug_level = args.log 
-    if debug_level != None:
+    if (__logger !=None) and (debug_level != None):
         logging.getLogger(None).setLevel(debug_level.upper())
         __logger.info("Debug level set to %s", debug_level.upper())
 
@@ -58,14 +60,27 @@ def process_arguments():
     exchange_list=[]
     if hasattr(args,"e") and (args.e != None): exchange_list = args.e 
     if hasattr(args,"exchange") and (args.exchange != None): exchange_list = args.exchange 
-    if len(exchange_list) != 0:
+    if (len(exchange_list) != 0) and (__logger != None):
         __logger.info("Processing exchanges:%s",exchange_list)
     update = False
     if args.update:
         update = True
     return (exchange_list, config_file, update)
 
-def get_config(key:str, *, configfile="config/pm.conf")->str:
+def init_config(logger=None, configfile:str=DEFAULT_CONFIG_FILE):
+    global __logger, __configfile
+    # Check existence of the config file and throw an exception if it does not exist
+    if not os.path.exists(configfile):
+        raise PMException("Cannot initialize configuration subsystem:" + configfile+" does not exists")
+    __configfile = configfile
+    if logger != None:
+        __logger = logger
+    else:
+        if os.path.exists(DEFAULT_LOGGING_CONFIG_FILE):
+            logging.config.fileConfig(DEFAULT_LOGGING_CONFIG_FILE)
+            __logger = logging.getLogger("config")
+
+def get_config(key:str)->str:
     '''
     Read the configuration file is needed and return the entry identified by key.
 
@@ -75,14 +90,14 @@ def get_config(key:str, *, configfile="config/pm.conf")->str:
     '''
 
     try:
-        global __config
-        if configfile in __config:
+        global __config, __configfile
+        if __configfile in __config:
             # We are aware of the configuration file
-            return __config[configfile][key]
-        __config[configfile] = __read_configuration(configfile)
-        return __config[configfile][key]
+            return __config[__configfile][key]
+        __config[__configfile] = __read_configuration(__configfile)
+        return __config[__configfile][key]
     except Exception as e:
-        __logger.error("Could not get configuration %s using configuration file %s -> %s", key, configfile, str(e))
+        if __logger != None: __logger.error("Could not get configuration %s using configuration file %s -> %s", key, __configfile, str(e))
         return ""
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ import unittest
 from numpy import ndarray, number
 import numpy
 import pandas as pd
-from PMExceptions import PMException
+from exceptions import PMException
 from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY, Ticker,  check_currency
 from Positions import Positions
 from TimeSeries import TimeSeries
@@ -231,7 +231,7 @@ class PortfolioGroupValuator(IPorfolioValuator):
 
     def get_valuations(self, start_date:date=None, end_date:date=None, dp_name=DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->TimeSeries:
         #For each portfolio in the group, value it
-        ts:TimeSeries = None
+        ts:TimeSeries|None = None
         for (i,portfolio) in enumerate(self.portfolio_group):
             pv = PortfolioValuator(portfolio)
             if(i==0):
@@ -289,7 +289,7 @@ class PortfolioValuator(IPorfolioValuator):
 
     def get_start_date(self, dp_name:str=DEFAULT_VALUATION_DATAPOINT):
         # Check the earliest start date of all instruments
-        start_date:date = None
+        start_date:date|None = None
         for position_identifier in self.portfolio.get_positions():
             # Ignore cash positions to compute earliest start date of the portfolio
             if(position_identifier.type == CASH): continue
@@ -302,7 +302,7 @@ class PortfolioValuator(IPorfolioValuator):
 
 
     def get_end_date(self, dp_name:str=DEFAULT_VALUATION_DATAPOINT):
-        end_date:date = None
+        end_date:date|None = None
         for position_identifier in self.portfolio.get_positions():
             # Ignore cash positions to compute earliest start date of the portfolio
             if(position_identifier.type == CASH): continue

@@ -475,6 +475,7 @@ def run_feeder_batch(batch_name:str, configfile):
     '''
     Run the feeder for the list of exchanges in batch identified by batch_name
     '''
+    init(None, configfile)
     __logger.info("Running batch feeder process %s", batch_name)
     api_key = get_oed_apikey()
     client = EodHistoricalData(api_key)
@@ -489,6 +490,7 @@ def run_feeder(exchange_list, update:bool, as_of_date:date=date.today()):
     Run the feeder for the list of exchanges passed in argument
     Each element of the list is just a list of exchange codes
     '''
+    init(None, configfile)
     api_key = get_oed_apikey()
     client = EodHistoricalData(api_key)
     update_db(client, exchange_list, update, as_of_date)
@@ -523,7 +525,6 @@ class UnitTestFeeder(unittest.TestCase):
 if __name__ == '__main__':
     try:
         exchange_list,configfile,update = process_arguments()
-        init(None, configfile)
         exchange_list = build_exchange_list(exchange_list)
         run_feeder(exchange_list, update)
     except Exception as e:

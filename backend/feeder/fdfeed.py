@@ -233,16 +233,17 @@ def run_feeder_batch(batch_name:str, configfile):
     update_db(client, exchange_list)
     display_stats()
 
-def run_fundamental_data_feeder_batch(batch_name:str, configfile, debug_level):
+def run_fundamental_data_feeder_batch(batch_name:str, configfile:str, batch_definition_file:str, debug_level):
     '''
     Run the fundamental data feeder for the list of exchanges in batch identified by batch_name
     '''
+    init(None, configfile)
     if(debug_level != None):
         __logger.setLevel(debug_level)
     __logger.info("Running fundamental data batch feeder process %s", batch_name)
     api_key = get_oed_apikey()
     client = EodHistoricalData(api_key)
-    with open(configfile, "r") as config_file:
+    with open(batch_definition_file, "r") as config_file:
         config = json.load(config_file)
     exchange_list = __get_exchange_list(config, batch_name)
     update_db(client, exchange_list)

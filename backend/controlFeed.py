@@ -3,8 +3,8 @@ import json
 import logging
 import logging.config
 from multiprocessing import Process
-from feeder.feeder import run_feeder_batch
-from feeder.fdfeed import run_fundamental_data_feeder_batch
+from feeder import run_feeder_batch
+from fdfeed import run_fundamental_data_feeder_batch
 
 logging.config.fileConfig("config/logging.conf")
 __logger = logging.getLogger('controller')

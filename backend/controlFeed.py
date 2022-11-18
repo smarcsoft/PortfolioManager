@@ -19,7 +19,7 @@ def run_batch(config:dict, configfile, batch_definition_file, load_type, debug_l
     if(load_type == "price"):
         p = Process(target=run_feeder_batch, args=(config['Batch_Name'],configfile, batch_definition_file))
     if(load_type == "fundamental_data"):
-        p = Process(target=run_fundamental_data_feeder_batch, args=(config['Batch_Name'],configfile, debug_level))
+        p = Process(target=run_fundamental_data_feeder_batch, args=(config['Batch_Name'],configfile, batch_definition_file, debug_level))
     p.start()
     return p
 

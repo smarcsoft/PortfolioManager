@@ -71,6 +71,7 @@ Main run script able to run the update process locally. Prefer run_update.sh ove
 Examples: 
 run.sh -c or run.sh --controller to run the controller.
 ./run.sh --controller --config config/controller_us.json --batch Batch_01
+./run.sh --type fundamental_data --config config/pm.conf --exchange US 
 
 ## run_update.sh
 Spawns the update process on the AWS compute server
@@ -83,6 +84,7 @@ run_update.sh will:
 run_update.sh --no-infra will not spin up and down the infrastructure
 run_update.sh --no-infra --config config/controller_us.json will run the price loader controller remotely on the compute server for the US stock exchanges.
 run_update.sh --type fundamental_data --config config/controller_us.json will run the fundamental data loader controller remotely on the compute server for the US stock exchanges.
+run_update.sh --type fundamental_data --config config/controller_us.json --batch Batch_01
 
 ## run_jupiter.sh
 Runs the jupiter server on the AWS compute server. Will start the server if not running.

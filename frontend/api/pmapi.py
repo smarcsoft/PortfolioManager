@@ -13,9 +13,7 @@ import logging
 import logging.config
 import logging.handlers
 from config import init_config
-
 import requests
-sys.path.append(os.path.join(os.getcwd(),'..','..','utils'))
 from config import get_config
 
 

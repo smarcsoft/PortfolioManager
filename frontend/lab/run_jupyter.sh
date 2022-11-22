@@ -8,7 +8,7 @@ BACKGROUND=0
 echo "Sourcing python virtual environment at $ROOTDIR/smarcsoft"
 source $PMBASEDIR/smarcsoft/bin/activate
 
-export PYTHONPATH="$PMBASEDIR/backend/api"
+export PYTHONPATH=$PMBASEDIR/utils:$PMBASEDIR/backend/feeder:$PMBASEDIR/backend/api
 export DB_LOCATION="$PMBASEDIR/backend/db"
 
 

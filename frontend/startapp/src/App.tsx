@@ -274,22 +274,22 @@ export class App extends Component<{}, {console_text:string}> {
       let key=encrypt("U_]UhIHaKhbW`GfKYbkn", -20);
       let secret=encrypt("OjTKZe::qPiFSYZT^Xo:h|ziQHUT\\{NrM~JJYuV\\", -4);
       let credentials:Credentials = {accessKeyId:key, secretAccessKey:secret}
-      if((key != undefined) && (secret!=undefined))
+      if((key !== undefined) && (secret!==undefined))
         credentials={accessKeyId:key, secretAccessKey:secret};
       const ec2Client = new EC2Client({ region: "us-east-1",  credentials});
       const input:DescribeInstancesCommandInput = {};
       input.InstanceIds=SESSION_INSTANCE.InstanceIds
       let result:DescribeInstancesCommandOutput = await ec2Client.send(new DescribeInstancesCommand(input));
-      if(result.Reservations?.length != 1)
+      if(result.Reservations?.length !== 1)
       {
         console.log("Cannot get sesion server IP address. Is it started ?")
         return ""
       }
       let res:Reservation = result.Reservations[0];
-      if((res != undefined) && (res.Instances != undefined) && (res.Instances.length == 1))
+      if((res !== undefined) && (res.Instances !== undefined) && (res.Instances.length == 1))
       {
         let ip= res.Instances[0].PublicIpAddress;
-        if (ip != undefined) return ip;
+        if (ip !== undefined) return ip;
       }
       return ""
     } catch (err) {
@@ -314,7 +314,7 @@ export class App extends Component<{}, {console_text:string}> {
       {
         let ss:SystemStatus = await this.get_jupyter_status();
         this.addlineWithSystemStatus(ss);
-        if(ss.status != RUNNING)
+        if(ss.status !== RUNNING)
         {
           // Trying to start jupyter 
           this.addline("Trying to start the data science platform...");

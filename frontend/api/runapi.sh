@@ -2,13 +2,11 @@
 current_dir=$(dirname "$0")
 #Setup the python virtual environment
 echo "setting up python environment"
-. $current_dir/../../aws/linuxsetup.sh >/dev/null
+. $current_dir/../../aws/update_infra.sh
 
 #Create log dir
 mkdir -p $current_dir/log
 
-#Updating python search path
-export PYTHONPATH=$current_dir/../../utils:$PYTHONPATH
 CONFIGFILE="$currentdir/config/pmapi.conf"
 
 #Process command line argument --exchange US

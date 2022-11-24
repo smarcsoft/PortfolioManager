@@ -1,6 +1,7 @@
 #!/bin/bash
 #Setup the python virtual environment
-. $(dirname "$0")/linuxsetup.sh >/dev/null
+. $(dirname "$0")/update_infra.sh >/dev/null
+
 
 TYPE="currency"
 

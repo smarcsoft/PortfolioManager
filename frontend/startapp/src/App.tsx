@@ -1,7 +1,11 @@
 import {Component} from 'react';
 import { ThemeProvider, PartialTheme, Stack, CompoundButton, IStackTokens } from '@fluentui/react';
+import { DescribeInstancesCommand, DescribeInstancesCommandInput, DescribeInstancesCommandOutput, EC2Client, Reservation } from "@aws-sdk/client-ec2";
 import './App.css';
 import { Console } from './Console';
+import {encrypt} from './config/config';
+import { Credentials } from '@aws-sdk/types';
+
 
 
 interface ServerStatus{
@@ -24,8 +28,8 @@ const RUNNING:number = 16;
 const PLATFORM_STARTED:number = 65;
 const NOT_KNOWN:number  = -1;
 
-const SERVICES_URL='http://44.211.192.23:5000/services'
-const JUPYTER_SERVICES_URL='http://44.211.192.23:5000/jupyter'
+let SERVICES_URL:string|undefined=undefined
+let JUPYTER_SERVICES_URL:string|undefined=undefined
 
 const appTheme: PartialTheme = {
   palette: {
@@ -54,9 +58,14 @@ const appTheme: PartialTheme = {
     white: '#474747',
   }};
 
+const SESSION_INSTANCE = {
+    InstanceIds: ["i-03228e353241f1e6b"]
+};
+
+
+
 const stackTokens: IStackTokens = { childrenGap: 40 };
 
-//export class App extends React.Component<{}, {lines:string[]}> {
 export class App extends Component<{}, {console_text:string}> {
   // Initial button states
   start_disabled:boolean = true;
@@ -200,6 +209,23 @@ export class App extends Component<{}, {console_text:string}> {
     }
   }
 
+
+  async start_jupyter() {
+    await this.start_jupyter_server();
+    await new Promise( resolve => setTimeout(resolve, 5000) ); // Wait 5 seconds, time for the jupyter server to start correctly.
+    let st = await this.get_jupyter_status();
+    if(st.status === RUNNING)
+    {
+      await this.addline("Launched!");
+      this.button_states_on_status(PLATFORM_STARTED, RUNNING);
+    }
+    else
+    {
+      await this.addline("Could not launch data science platform:" + st.details);
+      this.button_states_on_status(PLATFORM_STARTED, NOT_KNOWN);
+    }
+  }
+
   async startPM():Promise<void> {
     try{
       await this.clearconsole();
@@ -208,20 +234,7 @@ export class App extends Component<{}, {console_text:string}> {
       await this.addline("Launching financial data science platform...");
       // Wait 15 seconds, the time usually needed by AWS to accept incoming connections.
       await new Promise( resolve => setTimeout(resolve, 15000) );
-      await this.start_jupyter_server();
-      await new Promise( resolve => setTimeout(resolve, 5000) ); // Wait 5 seconds, time for the jupyter server to start correctly.
-      let st = await this.get_jupyter_status();
-      if(st.status === RUNNING)
-      {
-        await this.addline("Launched!");
-        this.button_states_on_status(PLATFORM_STARTED, RUNNING);
-      }
-      else
-      {
-        await this.addline("Could not launch data science platform:" + st.details);
-        this.button_states_on_status(PLATFORM_STARTED, NOT_KNOWN);
-      }
-      
+      this.start_jupyter();
     }
     catch(e)
     {
@@ -250,9 +263,50 @@ export class App extends Component<{}, {console_text:string}> {
     this.launch_checked = launch_checked;
   }
 
+  private get_key()
+  {
+
+  }
+
+  private async get_session_ip():Promise<string>
+  {
+    try {
+      let key=encrypt("U_]UhIHaKhbW`GfKYbkn", -20);
+      let secret=encrypt("OjTKZe::qPiFSYZT^Xo:h|ziQHUT\\{NrM~JJYuV\\", -4);
+      let credentials:Credentials = {accessKeyId:key, secretAccessKey:secret}
+      if((key !== undefined) && (secret!==undefined))
+        credentials={accessKeyId:key, secretAccessKey:secret};
+      const ec2Client = new EC2Client({ region: "us-east-1",  credentials});
+      const input:DescribeInstancesCommandInput = {};
+      input.InstanceIds=SESSION_INSTANCE.InstanceIds
+      let result:DescribeInstancesCommandOutput = await ec2Client.send(new DescribeInstancesCommand(input));
+      if(result.Reservations?.length !== 1)
+      {
+        console.log("Cannot get sesion server IP address. Is it started ?")
+        return ""
+      }
+      let res:Reservation = result.Reservations[0];
+      if((res !== undefined) && (res.Instances !== undefined) && (res.Instances.length == 1))
+      {
+        let ip= res.Instances[0].PublicIpAddress;
+        if (ip !== undefined) return ip;
+      }
+      return ""
+    } catch (err) {
+        console.log("Error", err);
+    }
+
+    return ""
+  }
+
   async start()
   {
     try{
+      //init_config('../../config/pmapi.conf');
+      let session_server_ip = await this.get_session_ip();
+      console.log("Session server IP address:"+session_server_ip)
+      SERVICES_URL="http://"+session_server_ip+":5000/services"
+      JUPYTER_SERVICES_URL="http://"+session_server_ip+":5000/jupyter"
       let st:ServerStatus = await this.get_server_status();
       this.button_states_on_status(st.status_code, NOT_KNOWN);
       this.addlineWithStatus(st);
@@ -260,6 +314,12 @@ export class App extends Component<{}, {console_text:string}> {
       {
         let ss:SystemStatus = await this.get_jupyter_status();
         this.addlineWithSystemStatus(ss);
+        if(ss.status !== RUNNING)
+        {
+          // Trying to start jupyter 
+          this.addline("Trying to start the data science platform...");
+          this.start_jupyter();
+        }
         this.button_states_on_status(st.status_code, ss.status);
         this.compute_ip = st.ip;
       } 
@@ -294,6 +354,8 @@ export class App extends Component<{}, {console_text:string}> {
 
   async start_jupyter_server():Promise<SystemStatus>
   {
+    if(JUPYTER_SERVICES_URL === undefined) 
+      throw new Error("Could not start data science platform due to the inability to access the PM frontend API");
     console.log("sending POST "+JUPYTER_SERVICES_URL);
     const response =  await fetch(JUPYTER_SERVICES_URL,{method:'POST'});
     if(response.ok){
@@ -308,6 +370,8 @@ export class App extends Component<{}, {console_text:string}> {
 
   async get_jupyter_status():Promise<SystemStatus>
   {
+    if(JUPYTER_SERVICES_URL === undefined) 
+      throw new Error("Could not access data science platform status due to the inability to access the PM frontend API");
     console.log("sending GET "+JUPYTER_SERVICES_URL);
     const response =  await fetch(JUPYTER_SERVICES_URL,{method:'GET'});
     if(response.ok){
@@ -327,8 +391,8 @@ export class App extends Component<{}, {console_text:string}> {
     for(let i=1;i<=60;i++)
     {
       ss = await this.get_server_status();
-      if((ss.status_code === NOT_KNOWN) || (ss.status_code === PENDING))
-      {
+      if((ss.status_code === NOT_KNOWN) || (ss.status_code === PENDING) || (ss.status_code === STOPPED))
+      { 
         console.log("Waiting for start completion...("+ss.status_code+")");
         await new Promise( resolve => setTimeout(resolve, 5000) );
       }
@@ -400,6 +464,8 @@ export class App extends Component<{}, {console_text:string}> {
 
   private async start_compute()
   {
+    if(SERVICES_URL === undefined) 
+      throw new Error("Could not start data science platform due to the inability to access the PM frontend API");
     console.log("sending POST "+SERVICES_URL);
     const response =  await fetch(SERVICES_URL,{method:'POST'});
     if(response.ok){
@@ -414,6 +480,8 @@ export class App extends Component<{}, {console_text:string}> {
 
   private async stop_compute()
   {
+    if(SERVICES_URL === undefined) 
+      throw new Error("Could not stop data science platform due to the inability to access the PM frontend API");
     const response =  await fetch(SERVICES_URL,{method:'DELETE'});
     if(response.ok){
       let myjson = await response.json()
@@ -442,6 +510,8 @@ export class App extends Component<{}, {console_text:string}> {
   async get_server_status():Promise<ServerStatus>
   {
     try {
+      if(SERVICES_URL === undefined) 
+      throw new Error("Could not get data science platform status due to the inability to access the PM frontend API");
       const response =  await fetch(SERVICES_URL,{method:'GET'});
       if(response.ok){
         let myjson = await response.json()

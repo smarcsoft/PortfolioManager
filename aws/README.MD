@@ -64,6 +64,8 @@ start_instance.sh: This is the master scripts. It starts the compute server if n
 run_update.sh: Connects to a compute server to run the update process. This is the script executed by the daily crontab
 run_jupiter.sh: Connects to a compute server to run the jupiter server.
 run.sh: runs the python update process.
+run_fx_update.sh: runs the fx feeder remotely
+run_fx.sh: runs the fx feeder locally. Called by run_fx_update.sh
 restart_proxy.sh: Restarts the reverse proxy
 
 ## run.sh

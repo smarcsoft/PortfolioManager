@@ -1,11 +1,8 @@
-import argparse
-from doctest import COMPARISON_FLAGS
 import os
 import string
 import subprocess
 import sys
-from typing import Literal, TypedDict
-from xmlrpc.client import boolean
+from typing import TypedDict
 from flask import Flask
 from flask_restful import Resource, Api, reqparse
 from numpy import number
@@ -15,9 +12,8 @@ from flask_cors import CORS
 import logging
 import logging.config
 import logging.handlers
-
+from config import init_config
 import requests
-sys.path.append(os.path.join(os.getcwd(),'..','..','utils'))
 from config import get_config
 
 
@@ -28,7 +24,7 @@ class Status(TypedDict):
 
 
 logging.config.fileConfig("config/logging.conf")
-
+logger = logging.getLogger('root')
 
 app = Flask(__name__)
 CORS(app)
@@ -44,18 +40,19 @@ STOPPING=64
 STOPPED=80
 
 CONFIG_FILE="config/pmapi.conf"
-
 COMPUTE_INSTANCE="i-0a3774d4c3e971e64"
 
+init_config(logger, CONFIG_FILE)
+
 api = Api(app)
-k=get_config("akey", configfile=CONFIG_FILE)
-s=get_config("asec", configfile=CONFIG_FILE)
-logger = logging.getLogger('root')
+k=get_config("akey")
+s=get_config("asec")
+
 boto3.Session(k, s)
 logger.info("Session initialized with key["+k+"] and password["+s+"].")
 client = boto3.client('ec2', 'us-east-1')
 unix = False
-scriptdir=get_config("scriptdir", configfile=CONFIG_FILE)
+scriptdir=get_config("scriptdir")
 
 @app.route("/")
 class Services(Resource):
@@ -210,7 +207,7 @@ class Jupyter(Resource):
             page = requests.get("http://"+ip+":9999/tree")
             if(page.status_code == 200):
                 return {'status': RUNNING}
-            return {'status': UNKNOWN, 'details':"Could not ping jupyter notebook. Status code returned:" + page.status_code}
+            return {'status': UNKNOWN, 'details':"Could not ping jupyter notebook. Status code returned:{status_code}".format(status_code = page.status_code)}
         except Exception as e:
             return {'status': UNKNOWN, 'details':str(e)}
 

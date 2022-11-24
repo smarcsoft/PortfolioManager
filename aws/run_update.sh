@@ -2,10 +2,14 @@
 
 POSITIONAL_ARGS=()
 NO_INFRA=0
-CONFIGFILE="config/controller.json"
+CONFIGFILE=""
 TYPE="price"
 BATCH=""
 NOEXEC=0
+CONTROLLER=""
+EXCHANGE=""
+EXCHANGES=""
+CONFIG=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -16,6 +20,10 @@ while [[ $# -gt 0 ]]; do
     --type)
       TYPE="$2" #price or fundamental_data
       shift
+      shift
+      ;;
+    --controller)
+      CONTROLLER="--controller"
       shift
       ;;
      --batch)
@@ -30,6 +38,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --batch)
       BATCH="--batch $2"
+      shift
+      shift
+      ;;
+    --exchange)
+      EXCHANGES="$2"
       shift
       shift
       ;;
@@ -49,6 +62,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 
+
 if [ $NO_INFRA -eq 0 ]
 then
     echo "Starting AWS infrastructure"
@@ -58,11 +72,21 @@ echo "Executing feeder on $TYPE..."
 #Get the public IP of the compute server
 backend_ip=$(aws ec2 describe-instances --instance-ids i-0a3774d4c3e971e64 --query Reservations[].Instances[].PublicIpAddress[] --output text)
 
+if [ -n "${EXCHANGES}" ]
+then
+    EXCHANGE="--exchange $EXCHANGES"
+fi
+
+if [ -n "${CONFIGFILE}" ]
+then
+    CONFIG="--config $CONFIGFILE"
+fi
+
 if [ $NOEXEC -eq 1 ]
 then
-    echo "ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE $BATCH"
+    echo "ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh $CONTROLLER --type $TYPE $EXCHANGE $CONFIG $BATCH"
 else
-    ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh --controller --type $TYPE --config $CONFIGFILE $BATCH
+    ssh -i /home/smarcsoft/keys/PMsmarcsoft.pem -o StrictHostKeyChecking=no -o LogLevel=quiet smarcsoft@$backend_ip /home/smarcsoft/PortfolioManager/aws/run.sh $CONTROLLER --type $TYPE $EXCHANGE $CONFIG $BATCH
 fi
  
 if [ $NO_INFRA -eq 0 ]

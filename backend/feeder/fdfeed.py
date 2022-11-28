@@ -291,7 +291,7 @@ class UnitTestFDFeeder(unittest.TestCase):
         self.assertTrue(True)
 
     def check_fd_load(self):
-        fd:FundamentalData = FundamentalData.load("NESN.VX")
+        fd:FundamentalData = FundamentalData.load("PGHN.VX")
         self.assertTrue(len(fd.general()) != 0)
 
 if __name__ == '__main__':

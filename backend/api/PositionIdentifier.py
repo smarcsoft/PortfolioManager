@@ -75,7 +75,8 @@ class Ticker(IInstrumentIdentifier):
         self._name = name
         self._country = country
         self._exchange = exchange
-        self._currency = currency
+        self._virtual_exchange = self.__get_virtual_exchange()
+        self._currency = Currency(currency)
 
     def __eq__(self, another):
         return self.get_full_ticker()==another.get_full_ticker()
@@ -85,17 +86,20 @@ class Ticker(IInstrumentIdentifier):
 
     def __hash__(self):
         return self.get_full_ticker().__hash__()
+
+    def __get_virtual_exchange(self)->str:
+        if((self._exchange == "NYSE") or (self._exchange == "NYSE ARCA") or (self._exchange == "NASDAQ")):
+            return "US"
+        return self._exchange
     
     def get_full_ticker(self):
-        return self._code+'.'+self._exchange
+        return self._code+'.'+self._virtual_exchange
 
     def get_identifier(self)->str:
         return self.get_full_ticker()
 
     def get_currency(self)->Currency:
-        if(self.exchange == 'US'):
-            return Currency("USD")
-        raise PMException("Undefined currency for ticker {ticker}", ticker = self.get_full_ticker())
+        return self._currency
         
     @property
     def code(self):

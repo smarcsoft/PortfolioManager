@@ -164,6 +164,9 @@ def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARD
         raise PMException("Could not find time series for ticker {full_ticker}".format(full_ticker = full_ticker))
 
 def get_ticker(full_ticker:str)->Ticker:
+    '''
+    Get the ticker from the fully qualified ticker
+    '''
     #read ticker details from datbase
     (ticker, exchange) = full_ticker.split('.')
     idfile = os.path.join(get_equity_database(), exchange, ticker, "id")
@@ -191,7 +194,7 @@ class UnitTestData(unittest.TestCase):
         t:Ticker = get_ticker('GT.US')
         self.assertEqual(t.code, 'GT')
         self.assertEqual(t.country, 'USA')
-        self.assertEqual(t.currency, 'USD')
+        self.assertEqual(t.currency.get_identifier(), 'USD')
         self.assertEqual(t.exchange,'NASDAQ')
         self.assertEqual(t.isin, 'US3825501014')
         self.assertEqual(t.name, 'Goodyear Tire & Rubber Co')

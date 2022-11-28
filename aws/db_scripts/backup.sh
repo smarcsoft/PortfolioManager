@@ -27,7 +27,9 @@ if [ -n "${EXCHANGE}" ]
 then
     echo "Creating tar ball for exchange $EXCHANGE"
     tar cvf db_$EXCHANGE.tar $PMBASEDIR/backend/db/EQUITIES/$EXCHANGE
-    echo "Backing up database to s3://smarcsoftportfoliomanager"                                                                                                                                                                                                                 aws s3 cp db.tar s3://smarcsoftportfoliomanager                                                                                                                                                                                                                              rm db_$EXCHANGE.tar
+    echo "Backing up database to s3://smarcsoftportfoliomanager"
+    aws s3 cp db_$EXCHANGE.tar s3://smarcsoftportfoliomanager
+    rm db_$EXCHANGE.tar
 else
     echo "Creating tar ball for all the database..."
     tar cvf db.tar $PMBASEDIR/backend/db

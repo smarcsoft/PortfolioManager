@@ -2,6 +2,7 @@ import argparse
 import logging
 import logging.config
 import os
+import platform
 from exceptions import PMException
 
 DEFAULT_CONFIG_FILE="config/pm.conf"
@@ -68,6 +69,9 @@ def process_arguments():
     return (exchange_list, config_file, update)
 
 def init_config(logger=None, configfile:str=DEFAULT_CONFIG_FILE):
+    '''
+    Initializes the configuration subsystem so that get_config() works.
+    '''
     global __logger, __configfile
     # Check existence of the config file and throw an exception if it does not exist
     if not os.path.exists(configfile):
@@ -79,6 +83,24 @@ def init_config(logger=None, configfile:str=DEFAULT_CONFIG_FILE):
         if os.path.exists(DEFAULT_LOGGING_CONFIG_FILE):
             logging.config.fileConfig(DEFAULT_LOGGING_CONFIG_FILE)
             __logger = logging.getLogger("config")
+
+def init_logging(loggername:str="root", configfile:str=DEFAULT_CONFIG_FILE):
+    '''
+    Initialized the logging infrastructure.
+    Reads the logging configuration from the configuration file configfile and initializes the logging subsystem accordingly.
+    Returns the initialized logger.
+    '''
+    init_config(None, configfile)
+    # Get the logging subsystem configuration 
+    log_conf_file_loc = get_config("LOGGING_CONFIGURATION")
+    if(len(log_conf_file_loc) == 0):
+        #Fall back to detault
+        log_conf_file_loc = DEFAULT_LOGGING_CONFIG_FILE
+    if(os.path.exists(log_conf_file_loc)):
+        logging.config.fileConfig(log_conf_file_loc)
+        return logging.getLogger(loggername)
+    else:
+        raise PMException("Cannot initialize logging subsystem with " + log_conf_file_loc+": The file does not exist")
 
 def get_config(key:str)->str:
     '''
@@ -100,5 +122,16 @@ def get_config(key:str)->str:
         if __logger != None: __logger.error("Could not get configuration %s using configuration file %s -> %s", key, __configfile, str(e))
         return ""
 
+
+def get_install_location()->str:
+    # Windows or Unix ?
+    toreturn=""
+    if(platform.system() == "Windows"):
+        toreturn = get_config("INSTALL_DIR_WIN")
+    else:
+        toreturn = get_config("INSTALL_DIR_UNIX")
+    return toreturn
+
 if __name__ == '__main__':
     assert get_config("LOG_FILE_LOC") != ""
+    assert get_install_location() != ""

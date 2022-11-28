@@ -104,3 +104,9 @@ stop_db.sh: stops the database infrastructure
 
 ### start_compute.sh [--check]
 starts the main compute server. If --check is provided, checks if the infrastructure is already started and prints the public (first) and private IP (second) addresses of the server like "x.x.x.x,y.y.y.u" if the compute server is started or "not started" otherwise
+
+### indexer.sh
+Runs the indexation process to speed up symbol searches. 
+Example:
+indexer.sh --no-infra will run the indexer on the remote compute server without starting/stopping the compute server
+indexer.sh --config config/pm.conf will run the indexation process on the compute server

@@ -504,10 +504,10 @@ class UnitTestFeeder(unittest.TestCase):
     TEST_CONFIG="tests/config/pm.conf"
     
     def test__get_last_date(self):
-        self.assertEqual(get_last_date("NESN.VX"), date(2022,11,10))
+        self.assertEqual(get_last_date("PGHN.VX"), date(2022,11,10))
 
     def test__get_next_last_date(self):
-        self.assertEqual(get_last_date("NESN.VX"), date(2022,11,11))
+        self.assertEqual(get_last_date("PGHN.VX"), date(2022,11,11))
 
     def emptyvx(self):
         init(None, self.TEST_CONFIG)

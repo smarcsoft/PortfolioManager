@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from genericpath import exists
+from glob import glob
 import os
 import unittest
 import numpy as np
@@ -26,30 +27,73 @@ def init(database_location:str = None):
     if not exists(location): raise PMException("Missing database at {location}".format(location=location))
     __init_ticker_cache()
 
+def get_symbol_types():
+    '''
+    Browse the database to extract the distinct list of symbol types.
+    Supported ticker types:
+    ['ETF', 'Note', 'FUND', 'Common Stock', 'Mutual Fund', 'ETC', 'INDEX', 'Preferred Stock']
+    '''
+    tickers = __get_tickers_for_market()
+    return list(set([ticker.type for ticker in tickers]))
 
-def search(symbol_name:str, market:str='US', type:str = "Common Stock")->list[Ticker]:
+def search(symbol_name:str, market:str='', type:str = "Common Stock")->list[Ticker]:
     '''
     Searches for the instrument containing symbol_name in its name for the market specified
+    Arguments:
+    symbol_name: the symbol, or part of the symbol name (not ticker) to look for
+    market: '' for all markets (which is the default) or the exchange (such as 'US' or 'SW')
+    type: the types of symbol to look for. See the results of get_symbol_types()
     '''
     if not __tickercache:
-        __init_ticker_cache(market)
-    if not __tickercache[market]:
-        __init_ticker_cache(market)
-    names = __tickercache[market].keys()
+        __init_ticker_cache()
+    tickers = __get_tickers_for_market(market)
     # Find the name in names
-    matching_names = [name for name in names if symbol_name.lower() in name.lower()]
-    return [__tickercache[market][name] for name in matching_names if __tickercache[market][name].type.lower()==type.lower()]
+    matching_tickers = [ticker for ticker in tickers if (symbol_name.lower() in ticker.name.lower()) and (type.lower() in ticker.type.lower())]
+    return matching_tickers
 
-def __init_ticker_cache(exchange:str='US'):
-    if exchange not in __tickercache:
-        __tickercache[exchange] = {}
-    path = os.path.join(get_equity_database(), exchange)
-    # Read all directory entries as tickers
-    for ticker in os.listdir(path=path):
-        # Read symbol name
-        with open(os.path.join(path, ticker, 'id')) as idfile:
-            identity = json.load(idfile)
-            __tickercache[exchange][identity["Name"]] = Ticker(ticker, exchange, isin=identity["Isin"], name=identity["Name"], type=identity["Type"])
+def search_isin(isin:str, market:str='')->list[Ticker]:
+    '''
+    Searches for the instrument containing symbol_name in its name for the market specified
+    Arguments:
+    symbol_name: the symbol, or part of the symbol name (not ticker) to look for
+    market: '' for all markets (which is the default) or the exchange (such as 'US' or 'SW')
+    type: the types of symbol to look for. See the results of get_symbol_types()
+    '''
+    if not __tickercache:
+        __init_ticker_cache()
+    tickers = __get_tickers_for_market(market)
+    # Find the name in names
+    matching_tickers = [ticker for ticker in tickers if (ticker.isin != None) and (isin.lower() in ticker.isin.lower())]
+    return matching_tickers
+
+def __get_tickers_for_market(market:str='')->list:
+    if(len(market)!=0):
+        return __tickercache[market].values()
+    else:
+        #union of all symbols for all markets
+        toreturn = []
+        for exchange in __tickercache.keys():
+            toreturn.extend(__tickercache[exchange].values())
+        return toreturn
+
+            
+
+
+def __init_ticker_cache():
+    exchanges = __get_all_exchanges()
+    for exchange in exchanges:
+        if exchange not in __tickercache:
+            __tickercache[exchange] = {}
+        # Load the universe file
+        path = os.path.join(get_equity_database(), exchange)
+        tickers=[]
+        with open(os.path.join(path, "universe.json")) as universefile:
+            tickers=json.load(universefile)
+        for ticker in tickers:
+            __tickercache[exchange][ticker["Name"]] = Ticker(ticker["Code"], exchange, isin=ticker["Isin"], name=ticker["Name"], type=ticker["Type"])
+       
+def __get_all_exchanges():
+    return [f.name for f in os.scandir(get_equity_database()) if f.is_dir()]
 
 def get_fundamental_data(full_ticker:str)->FundamentalData:
     return FundamentalData.load(full_ticker)
@@ -137,6 +181,12 @@ class UnitTestData(unittest.TestCase):
         ts4:TimeSeries = ts.cut2dates(date(2020,1,1), date(2020,1,10))
         self.assertEqual(ts3, ts4)
 
+    def test_msci_timeseries(self):
+        ts:TimeSeries = get_timeseries("MSCI.US", "close")
+        #Take the 1st of September value
+        value = ts.get(date(2022,9,1))
+        self.assertAlmostEqual(value, 456, delta=1)
+
     def test_get_ticker(self):
         t:Ticker = get_ticker('GT.US')
         self.assertEqual(t.code, 'GT')
@@ -148,17 +198,24 @@ class UnitTestData(unittest.TestCase):
         self.assertEqual(t.type, 'Common Stock')
 
     def test_multiple_search(self):
-        self.assertEqual(len(search("MICRO")), 43)
+        self.assertEqual(len(search("MICRO")), 44)
     
     def test_hot_search(self):
         self.assertEqual(len(search("MICROSOFT")), 1)
 
     def test_hot_search2(self):
-        self.assertEqual(len(search("Property")), 37)
+        self.assertEqual(len(search("Property", "US")), 36)
+        self.assertEqual(len(search("Property")), 39)
+
+    def test_get_symbol_types(self):
+        self.assertEqual(len(get_symbol_types()), 8)
 
     def test_currency(self):
         self.assertAlmostEqual(get_fx_timeseries("EUR")[0], 0.99, delta=0.01)
         self.assertAlmostEqual(get_fx_timeseries("EUR").get(date(2022,11,8)), 0.9981, delta = 0.001)
+
+    def test_search_isin(self):
+        self.assertEqual(len(search_isin("US55354G1004")), 1)
 
     def test_crypto(self):
         self.assertAlmostEqual(get_fx_timeseries("BTC").get(date(2022,11,9)), 6.2969199843932e-05, delta = 1e-05)

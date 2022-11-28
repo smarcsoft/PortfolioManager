@@ -486,6 +486,13 @@ class UnitTestValuations(unittest.TestCase):
         self.assertEqual(v.get_start_date(), datetime.strptime('1990-02-16', '%Y-%m-%d').date())
 
     
+    def test_msci_valuation(self):
+        p:Portfolio = Portfolio()
+        p.buy('MSCI', 10)
+        self.assertEqual(PortfolioValuator(p).get_valuations().get(date.fromisoformat("2022-09-01")),get_timeseries("MSCI.US", "adjusted_close").get(date(2022,9,1))*10)
+        # This valuation should not change unless the historical time series is restated.
+        self.assertAlmostEqual(PortfolioValuator(p).get_valuations().get(date(2022,9,1)),4556.9, delta=0.1) 
+
     def test_portfolio(self):
         my_portfolio:Portfolio = Portfolio()
         my_portfolio.buy('MSCI', 2578) #Performance shares
@@ -502,11 +509,11 @@ class UnitTestValuations(unittest.TestCase):
         p.buy('CSCO', 20)
         pg = PortfolioGroup()
         pg.add(p)
-        self.assertAlmostEqual((pg.valuator().get_valuation(date.fromisoformat("2022-09-01"))), 3509, delta=1)
+        self.assertAlmostEqual((pg.valuator().get_valuation(date.fromisoformat("2022-09-01"))), 3495, delta=1)
         p2:Portfolio = Portfolio()
         p.buy('MSCI', 50)
         pg.add(p2)
-        self.assertAlmostEqual((pg.valuator().get_valuation(date.fromisoformat("2022-09-01"))), 26355, delta = 1)
+        self.assertAlmostEqual((pg.valuator().get_valuation(date.fromisoformat("2022-09-01"))), 26278, delta = 1)
 
     def test_portfolio_group2(self):
         pg:PortfolioGroup = PortfolioGroup("My Investments")
@@ -519,7 +526,7 @@ class UnitTestValuations(unittest.TestCase):
         p2.buy('MSFT', 10)
         p2.buy('MSFT', 20)
         pg.add(p2)
-        self.assertAlmostEqual(pg.valuator().get_valuation(date.fromisoformat("2022-09-01")), 565058, delta=1)
+        self.assertAlmostEqual(pg.valuator().get_valuation(date.fromisoformat("2022-09-01")), 565036, delta=1)
 
  #   @time_func
     def test_get_end_date(self):
@@ -545,7 +552,7 @@ class UnitTestValuations(unittest.TestCase):
         p.buy('MSCI', 1)
         v:PortfolioValuator = PortfolioValuator(portfolio=p)
         value:number = v.get_valuation(valdate=date.fromisoformat("2022-09-01"))
-        self.assertAlmostEqual(value, 456.9, delta=0.1)
+        self.assertAlmostEqual(value, 455.69, delta=0.2)
         p.add('USD', 2000000)
         new_value:number = v.get_valuation(valdate=date.fromisoformat("2022-09-01"))
         self.assertEqual(new_value-value, 2000000)
@@ -558,16 +565,16 @@ class UnitTestValuations(unittest.TestCase):
         p.buy('MSCI', 30)
         v:IndexValuator = IndexValuator(portfolio=p, base_date=date.fromisoformat("2010-01-01"), base_value=100)
         ts:ndarray = v.get_index_valuations(end_date=date.fromisoformat("2021-12-31")).get_full_time_series()
-        self.assertAlmostEqual(ts[len(ts)-1], 1574, delta=0.1)
+        self.assertAlmostEqual(ts[len(ts)-1], 1576, delta=0.2)
 
     def test_currency_conversion(self):
         p:Portfolio = Portfolio()
         p.buy('MSCI', 10)
         v:PortfolioValuator = PortfolioValuator(portfolio=p)
         value:number = v.get_valuation(valdate=date.fromisoformat("2022-09-01"))
-        self.assertAlmostEqual(value, 4569, delta=1)
+        self.assertAlmostEqual(value, 4556.89, delta=1)
         value_chf:number = v.get_valuation(valdate=date.fromisoformat("2022-09-01"), ccy="CHF")
-        self.assertAlmostEqual(value_chf, 4473, delta=1)
+        self.assertAlmostEqual(value_chf, 4461, delta=1)
 
     def test_mac_portfolio(self):
         my_portfolio:Portfolio = Portfolio()

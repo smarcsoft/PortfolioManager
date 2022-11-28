@@ -9,7 +9,7 @@ from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY, Ticke
 from Positions import Positions
 from TimeSeries import TimeSeries
 from pmdata import get_fx
-from pmdata import get_timeseries
+from pmdata import get_timeseries, get_ticker
 
 
 
@@ -17,6 +17,7 @@ from pmdata import get_timeseries
 DEFAULT_VALUATION_DATAPOINT='adjusted_close'
 DEFAULT_CURRENCY='USD'
 DEFAULT_INSTRUMENT_TYPE='Common Stock'
+DEFAULT_MARKET_CODE='US'
 
 
 class Portfolio:
@@ -45,11 +46,22 @@ class Portfolio:
         check_currency(currency)
         self._buy(PositionIdentifier(CASH, Currency(currency), tags), quantity)
 
-    def buy(self, ticker_code:str, quantity:number, exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD", tags:set=None ):
+    def buy(self, ticker_code:str, quantity:number, tags:set=None ):
         '''
-        Adds an equity in the portfolio
-        '''
-        self._buy(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency), tags), quantity)
+        Adds an instrument in the portfolio
+        '''  
+        if(ticker_code.find(".") != -1):
+            (ticker,exchange) = ticker_code.split('.')
+            full_ticker = ticker+"."+exchange
+        else:
+            full_ticker = ticker_code+"." + DEFAULT_MARKET_CODE
+        # Get meta data for the ticker
+        try:
+            ticker = get_ticker(full_ticker)
+            self._buy(PositionIdentifier(EQUITY, ticker, tags), quantity)
+        except Exception:
+            raise PMException("Cannot find or process the instrument identified by ticker code " + ticker_code)
+        
 
     def _buy(self, ticker:PositionIdentifier, quantity:number):
         # Tagged positions are not aggregared with non-tagged positions. They are aggregated together 
@@ -63,7 +75,17 @@ class Portfolio:
         '''
         Sells an equity from the portfolio
         '''
-        self._sell(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency)), quantity)
+        if(ticker_code.find(".") != -1):
+            (ticker,exchange) = ticker_code.split('.')
+            full_ticker = ticker+"."+exchange
+        else:
+            full_ticker = ticker_code+"." + DEFAULT_MARKET_CODE
+        # Get meta data for the ticker
+        try:
+            ticker = get_ticker(full_ticker)
+            self._sell(PositionIdentifier(EQUITY, ticker), quantity)
+        except Exception:
+            raise PMException("Cannot find or process the instrument identified by ticker code " + ticker_code)
 
 
     def withdraw(self, currency:str, quantity:number):
@@ -595,6 +617,15 @@ class UnitTestValuations(unittest.TestCase):
         with_cryptos = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-09-01"))
         self.assertAlmostEqual(with_cryptos - with_cash, 105911, delta=1)
 
+        my_portfolio.add('EUR', 1462.32, tags={'SWISSQUOTE'})
+        my_portfolio.add('USD', 165928.14, tags={'SWISSQUOTE'})
+        my_portfolio.buy('IPRP.SW', 235, tags={'SWISSQUOTE'})
+        my_portfolio.buy('VUSA.SW', 800, tags={'SWISSQUOTE'})
+        my_portfolio.buy('WSRUSA.SW', 489, tags={'SWISSQUOTE'})
+        my_portfolio.buy('EFA', 428, tags={'SWISSQUOTE'})
+        my_portfolio.buy('LCTU', 428, tags={'SWISSQUOTE'})
+        with_swissquote = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-09-01"))
+#        print(with_swissquote- with_cryptos)
 
 if __name__ == '__main__':
     unittest.main()

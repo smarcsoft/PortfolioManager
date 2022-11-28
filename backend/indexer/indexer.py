@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from config import DEFAULT_CONFIG_FILE, DEFAULT_LOGGING_CONFIG_FILE, get_config, get_install_location, init_config, init_logging, process_arguments
+from config import  get_config, get_install_location,  init_logging, process_arguments
 from exceptions import PMException
 
 
@@ -41,7 +41,7 @@ def update_universe(directory, exchange, universe:list):
 if __name__ == '__main__':
     try:
         (exchange_list, config_file, update) = process_arguments()
-        __logger = init_logging('indexer')
+        __logger = init_logging('indexer', config_file)
         __logger.info("Running indexer...")
         universe = walk('EQUITIES')
         __logger.info(str(len(universe)) +" tickers are being indexed")

@@ -34,6 +34,10 @@
 # Swiss stock exchange
 30 23 * * 1-5 /home/smarcsoft/PortfolioManager/aws/run_update.sh --no-infra --exchange SW
 30 23 * * 1-5 /home/smarcsoft/PortfolioManager/aws/run_update.sh --no-infra --exchange VX
+30 23 * * 1-5 /home/smarcsoft/PortfolioManager/aws/run_update.sh --no-infra --exchange PA
+#index the database
+30 23 * * 1-5 /home/smarcsoft/PortfolioManager/aws/db_scripts/indexer.sh --no-infra
+# Shutdown infrastructure
 30 01 * * 2-6 /home/smarcsoft/PortfolioManager/aws/stop_infra.sh
 
 # From Monday to Thursday, start the infrastructure at 6:15PM

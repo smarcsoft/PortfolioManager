@@ -640,7 +640,7 @@ class UnitTestValuations(unittest.TestCase):
         with_swissquote = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-09-01"))
 #        print(with_swissquote- with_cryptos)
         swissquote = my_portfolio.create("swissquote", {'SWISSQUOTE'})
-        self.assertEqual(len(swissquote.get_positions()), 7)
+        self.assertEqual(len(swissquote.get_positions()), 8)
         sqvalue = PortfolioValuator(portfolio=swissquote).get_valuation(date(2022,9,1))
         self.assertAlmostEqual(with_swissquote - with_cryptos, sqvalue, delta=1)
 

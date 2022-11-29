@@ -18,7 +18,7 @@ def walk_exchange(basedir, exchange_dir)->list:
     update_universe(os.path.join(basedir, exchange_dir), exchange_dir, universe)
     return universe
 
-def walk(databasename:str)->list:
+def walk(databasename:str, exchange_list:list)->list:
     '''
     Returns a list of objects. Each object is an id file structure.
     '''
@@ -26,10 +26,14 @@ def walk(databasename:str)->list:
     db_location = get_config("DB_LOCATION")
     basedir = os.path.join(install, "backend", db_location,databasename)
     universe = []
-    for exchange in os.listdir(basedir):
-        if(os.path.isdir(os.path.join(basedir, exchange))):
+    if(len(exchange_list)==0):
+        for exchange in os.listdir(basedir):
+            if(os.path.isdir(os.path.join(basedir, exchange))):
+                universe.extend(walk_exchange(basedir, exchange))
+        update_universe(basedir, "ALL", universe)
+    else:
+        for exchange in exchange_list:
             universe.extend(walk_exchange(basedir, exchange))
-    update_universe(basedir, "ALL", universe)
     return universe
 
 def update_universe(directory, exchange, universe:list):
@@ -42,8 +46,11 @@ if __name__ == '__main__':
     try:
         (exchange_list, config_file, update) = process_arguments()
         __logger = init_logging('indexer', config_file)
-        __logger.info("Running indexer...")
-        universe = walk('EQUITIES')
+        if(len(exchange_list) == 0):
+            __logger.info("Running indexer on the whole database...")
+        else:
+            __logger.info("Running indexer on the " + exchange_list.__repr__() + " exchange(s)...")
+        universe = walk('EQUITIES', exchange_list)
         __logger.info(str(len(universe)) +" tickers are being indexed")
     except Exception as e:
         print("Fatal error:", str(e))

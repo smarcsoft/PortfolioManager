@@ -117,6 +117,9 @@ def get_config(key:str)->str:
             # We are aware of the configuration file
             return __config[__configfile][key]
         __config[__configfile] = __read_configuration(__configfile)
+        # Check if an environment variable is overriding the configuration file
+        if(os.environ.get(key) != None):
+            return os.environ.get(key)
         return __config[__configfile][key]
     except Exception as e:
         if __logger != None: __logger.error("Could not get configuration %s using configuration file %s -> %s", key, __configfile, str(e))

@@ -78,7 +78,7 @@ class FundamentalData:
 class UnitTestFundamentalData(unittest.TestCase):
     def test_load(self):
         fd:FundamentalData = FundamentalData.load("WNC.US")
-        self.assertEqual(len(fd.general()),34) 
+        self.assertEqual(len(fd.general()),35) 
         self.assertEqual(len(fd.highlights()),25) 
         self.assertEqual(len(fd.valuation()),7) 
         self.assertEqual(len(fd.shares_stats()),9) 

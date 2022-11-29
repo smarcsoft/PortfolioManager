@@ -38,6 +38,12 @@ class Portfolio:
         Returns the list of positions of the portfolio in a dictionary keyed my ticker.
         '''
         return self.positions
+
+    def _set_positions(self, positions:Positions) -> Positions:
+        '''
+        Returns the list of positions of the portfolio in a dictionary keyed my ticker.
+        '''
+        self.positions = positions
     
     def add(self, currency:str, quantity:number, tags:set=None):
         '''
@@ -62,6 +68,11 @@ class Portfolio:
         except Exception:
             raise PMException("Cannot find or process the instrument identified by ticker code " + ticker_code)
         
+    def create(self, name, tags:set):
+        positions:Positions = self.positions.get_tagged_positions(tags)
+        toreturn= Portfolio(name)
+        toreturn._set_positions(positions)
+        return toreturn
 
     def _buy(self, ticker:PositionIdentifier, quantity:number):
         # Tagged positions are not aggregared with non-tagged positions. They are aggregated together 
@@ -71,7 +82,7 @@ class Portfolio:
         else:
             self.positions[ticker] = quantity
 
-    def sell(self, ticker_code:str, quantity:number, exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD" ):
+    def sell(self, ticker_code:str, quantity:number):
         '''
         Sells an equity from the portfolio
         '''
@@ -624,8 +635,15 @@ class UnitTestValuations(unittest.TestCase):
         my_portfolio.buy('WSRUSA.SW', 489, tags={'SWISSQUOTE'})
         my_portfolio.buy('EFA', 428, tags={'SWISSQUOTE'})
         my_portfolio.buy('LCTU', 428, tags={'SWISSQUOTE'})
+        my_portfolio.buy('STLA.PA', 2923, tags={'SWISSQUOTE'})
+
         with_swissquote = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-09-01"))
 #        print(with_swissquote- with_cryptos)
+        swissquote = my_portfolio.create("swissquote", {'SWISSQUOTE'})
+        self.assertEqual(len(swissquote.get_positions()), 8)
+        sqvalue = PortfolioValuator(portfolio=swissquote).get_valuation(date(2022,9,1))
+        self.assertAlmostEqual(with_swissquote - with_cryptos, sqvalue, delta=1)
+
 
 if __name__ == '__main__':
     unittest.main()

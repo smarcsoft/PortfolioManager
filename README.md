@@ -27,15 +27,21 @@ It runs jupyter server.
 This is happening in frontend/lab.
 
 
+# Roadmap:
+- Notebook to demonstrate tags and selections
+- Support my portfolio
+- Save and Load portfolio and portfolio groups
+- Create an environment per user
+- User registration capability
+- Feedback/Request for improvement section in UI
+- Post pilot on french finane forum
+- Alert capabilities on relative/absolute profit and losses
+
 
 # TODOs:
-## Must do
-- Deploy jupiter lab on the smarcsoft.com web server
-    - Automate the proxy configuration when the compute sever starts
 
 ## Should do
 - Setup the daily update process with a report being emailed daily 
-- Purge old exchange load IDs (with ticker loads) from the database and setup automated cleanup job
 
 ## Possible improvements
 - Avoid API calls if we are trying to update data which is already loaded in the database

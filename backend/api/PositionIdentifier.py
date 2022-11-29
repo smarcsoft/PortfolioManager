@@ -190,6 +190,17 @@ class PositionIdentifier:
     def tags(self):
         return self._tags
 
+    def has_one_tag(self, tags:set):
+        for tag in tags:
+            if tag in self._tags:
+                return True
+        return False
+
+    def has_all_tag(self, tags:set):
+        for tag in tags:
+            if tag not in self._tags:
+                return False
+        return True
 
 class UnitTestTicker(unittest.TestCase):
     def test_ticker(self):

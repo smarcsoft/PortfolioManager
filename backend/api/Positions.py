@@ -9,7 +9,7 @@ from PositionIdentifier import CASH
 class Positions:
     '''
     Containes the positions of a portfolio
-    Positions are a set of PositionIdentifier and values (amount of money for currencies of number of shares)
+    Positions are a set of PositionIdentifier and values (amount of money for currencies or number of shares)
     '''
     def __init__(self) -> None:
         self.__positions = {}
@@ -38,7 +38,14 @@ class Positions:
     def __len__(self):
         return len(self.__positions)
 
+    def get_tagged_positions(self,tags:set):
+        toreturn:Positions = Positions()
+        for positionidentifier in self.__positions:
+            if positionidentifier.has_one_tag(tags):
+                toreturn[positionidentifier] = self.__positions[positionidentifier]
+        return toreturn
 
+    
 class UnitTestPositions(unittest.TestCase):
     def test_positions_tags(self):
         p:Positions = Positions()

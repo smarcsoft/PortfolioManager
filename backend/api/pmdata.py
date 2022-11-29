@@ -201,7 +201,7 @@ class UnitTestData(unittest.TestCase):
         self.assertEqual(t.type, 'Common Stock')
 
     def test_multiple_search(self):
-        self.assertEqual(len(search("MICRO")), 44)
+        self.assertEqual(len(search("MICRO")), 46)
     
     def test_hot_search(self):
         self.assertEqual(len(search("MICROSOFT")), 1)
@@ -223,6 +223,12 @@ class UnitTestData(unittest.TestCase):
     def test_crypto(self):
         self.assertAlmostEqual(get_fx_timeseries("BTC").get(date(2022,11,9)), 6.2969199843932e-05, delta = 1e-05)
         self.assertAlmostEqual(get_fx_timeseries("ETH").get(date(2022,11,9)), 1/1100, delta = 0.001)
+
+    def test_cut2dates(self):
+        ts = get_timeseries('C40.PA', "adjusted_close")
+        ts2=ts.cut2dates(date(2022,1,1), ts.get_end_date())
+        number_of_days = (ts.get_end_date() - date(2022,1,1)).days
+        self.assertEqual(ts2.size(), number_of_days+1)
 
 if __name__ == '__main__':
     init()

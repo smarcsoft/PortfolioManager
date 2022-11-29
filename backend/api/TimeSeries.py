@@ -80,7 +80,7 @@ class TimeSeries:
         return self.days
 
     def cut2dates(self, start_date:date, end_date:date):
-        return TimeSeries(self.time_series[(start_date -self.start_date).days:(end_date-self.end_date).days], start_date, end_date)
+        return TimeSeries(self.time_series[(start_date -self.start_date).days:(end_date-self.start_date).days+1], start_date, end_date)
 
     def cutndays(self, start_date:date, days:int):
         return TimeSeries(self.time_series[(start_date -self.start_date).days:(start_date -self.start_date).days + days], start_date, start_date + timedelta(days=days-1))
@@ -127,7 +127,7 @@ class TimeSeries:
         return "Time Series from {start_date:%m-%d-%Y} to {end_date:%m-%d-%Y} of {size} days with {ts}".format(start_date = self.start_date, end_date = self.end_date, size = self.time_series.size, ts=self.time_series)
 
     def __eq__(self, other):
-        return (self.time_series == other.time_series).all() and (self.start_date == other.start_date) and (self.end_date == other.end_date)
+        return (np.array_equal(self.time_series,other.time_series)) and (self.start_date == other.start_date) and (self.end_date == other.end_date)
 
     def __ne__(self, other):
         return not self.eq(other)
@@ -139,6 +139,11 @@ class UnitTestTimeSeries(unittest.TestCase):
         ts1+=ts2
         self.assertEqual(ts1[0], 6)
         self.assertEqual(ts1[3], 12)
+
+    def test_eq(self):
+        ts1=TimeSeries(np.array([1,2,3,4]))
+        ts2=TimeSeries(np.array([1,2,3,4]))
+        self.assertTrue(ts1==ts2)
 
     def test_add(self):
         ts1=TimeSeries(np.array([5,6,7,8]))

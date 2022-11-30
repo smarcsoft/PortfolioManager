@@ -20,7 +20,7 @@ if($exchange) {
         Write-Host "Using the tar ball from local file system..."
     }
 }
-Set-Location ../../backend
+Set-Location ..\..\backend
 if($exchange) {
     $tarball="db_$exchange.tar"
 } else {

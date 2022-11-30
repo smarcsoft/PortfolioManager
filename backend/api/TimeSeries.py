@@ -10,7 +10,7 @@ fill = types.SimpleNamespace()
 fill.FORWARDFILL = 1
 fill.BACKFILL = 2
 
-
+_DATEFORMAT='%Y-%m-%d'
 
 class TimeSeries:
 
@@ -71,8 +71,19 @@ class TimeSeries:
     
 
     def get(self,date:date)->np.float32:
+        index = (date - self.start_date).days
+        if((index >= self.time_series.size) or (index <0)):
+            raise PMException("Cannot return time series element at {date}, the time series ranges from {first_date} to {last_date}".format(date=date.strftime(_DATEFORMAT), 
+            first_date=self.start_date.strftime(_DATEFORMAT), last_date=self.end_date.strftime(_DATEFORMAT)))
         return self.time_series[(date - self.start_date).days]
     
+
+    def start_date(self)->date:
+        return self.start_date
+
+    def end_date(self)->date:
+        return self.end_date
+
     def size(self)->int:
         return self.time_series.size
 
@@ -179,6 +190,15 @@ class UnitTestTimeSeries(unittest.TestCase):
         ts3 = ts1/ts2
         self.assertEqual(ts3[0], 5)
         self.assertEqual(ts3[3], 2)
+
+    def test_dates(self):
+        ts1=TimeSeries(np.array([5,6,7,8]), start_date=date(2022,1,1), end_date=date(2022,1,4))
+        self.assertEqual(ts1.get(date(2022,1,4)), 8)
+        try:
+            ts1.get(date(2022,1,5))
+            self.assertTrue(False)
+        except PMException:
+            self.assertTrue(True)
 
 if __name__ == '__main__':
     unittest.main()

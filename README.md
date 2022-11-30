@@ -31,10 +31,11 @@ This is happening in frontend/lab.
 - Notebook to demonstrate tags and selections
 - Support my portfolio
 - Save and Load portfolio and portfolio groups
+- Create the API documentation and publish it
 - Create an environment per user
 - User registration capability
 - Feedback/Request for improvement section in UI
-- Post pilot on french finane forum
+- Post pilot on french finance forum
 - Alert capabilities on relative/absolute profit and losses
 
 

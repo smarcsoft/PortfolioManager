@@ -8,7 +8,7 @@ from exceptions import PMException
 from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY, Ticker,  check_currency
 from Positions import Positions
 from TimeSeries import TimeSeries
-from pmdata import get_fx
+from pmdata import fx_convert, get_fx
 from pmdata import get_timeseries, get_ticker
 
 
@@ -197,27 +197,7 @@ class InstrumentValuator:
         raise NotImplementedError("get_valuation should have an implementation in derived classes")
 
     def convert_to_target_currency(self, value:number, valdate:date, source_currency:Currency=DEFAULT_CURRENCY)->number:
-        if(source_currency != self.target_currency):
-            # Value the instrument to USD and then from USD to the target currency
-            value_usd = value
-            if(source_currency != Currency("USD")):
-                value_usd = self.__convert_to_usd(value, source_currency, valdate)
-
-            if(self.target_currency != Currency('USD')):
-                return self.__convert_usd_to_target(value_usd, self.target_currency, valdate)
-            return value_usd
-        return value
-
-
-    def __convert_usd_to_target(self, value:number, target_currency:Currency, valdate:date)->number:
-        fx = get_fx(target_currency.get_identifier(), valdate)
-        return value * fx
-
-    def __convert_to_usd(self, value:number, source_currency:Currency, valdate:date)->number:
-        # Get the FX rate
-        fx = get_fx(source_currency.get_identifier(), valdate)
-        return value/fx
-
+        return fx_convert(value, source_currency.get_identifier(), self.target_currency.get_identifier(), valdate)
 
     @staticmethod
     def valuator(portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency, **valuator_args):

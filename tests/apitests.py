@@ -56,6 +56,7 @@ def apitestsuite():
     suite.addTest(UnitTestTimeSeries('test_sub'))
     suite.addTest(UnitTestTimeSeries('test_mul'))
     suite.addTest(UnitTestTimeSeries('test_div'))
+    suite.addTest(UnitTestTimeSeries('test_dates'))
     suite.addTest(UnitTestData('test_cut2dates'))
     return suite
 

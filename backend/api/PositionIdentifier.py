@@ -36,6 +36,10 @@ class Currency(IInstrumentIdentifier):
         self._fiat = check_currency(currency)
         self._currency = currency
 
+
+    def state(self)->dict:
+        return {'fiat':self._fiat, 'currency':self._currency}
+
     def is_fiat(self)->bool:
         return self._fiat
 
@@ -52,10 +56,10 @@ class Currency(IInstrumentIdentifier):
         return not self.__eq__(another)
 
     def __hash__(self):
-        return self.get_identifier().__hash__()
+        return self._currency.__hash__()
 
-    def __repr__(self):
-        return self.get_identifier()
+    def pretty_print(self):
+        return self._currency
 
 class Ticker(IInstrumentIdentifier):
     '''
@@ -77,6 +81,18 @@ class Ticker(IInstrumentIdentifier):
         self._exchange = exchange
         self._virtual_exchange = self.__get_virtual_exchange()
         self._currency = Currency(currency)
+
+    def state(self)->dict:
+        toreturn={}
+        toreturn['type'] = self._type
+        toreturn['code'] = self._code
+        toreturn['isin'] = self._isin
+        toreturn['name'] = self._name
+        toreturn['country'] = self._country
+        toreturn['exchange'] = self._exchange
+        toreturn['virtual_exchange'] = self._virtual_exchange
+        toreturn['currency'] = self._currency.state()
+        return toreturn
 
     def __eq__(self, another):
         return self.get_full_ticker()==another.get_full_ticker()
@@ -129,7 +145,7 @@ class Ticker(IInstrumentIdentifier):
     def isin(self):
         return self._isin
 
-    def __repr__(self):
+    def pretty_print(self):
         return "Ticker {code} for company {name} with isin {isin}".format(code = self._code, name = self._name if len(self._name) != 0 else "UNKNOWN", isin = self._isin if (self._isin != None) and (len(self._isin) != 0) else "UNKNOWN")
 
 
@@ -149,6 +165,13 @@ class PositionIdentifier:
             self._tags = set()
         else:
             self._tags = tags
+
+    def state(self)->dict:
+        to_return={}
+        to_return['type']=self._type
+        to_return['id']=self._id.state()
+        to_return['tags']=list(self._tags)
+        return to_return
 
     def __eq__(self, another):
         return (self._type == another._type) and (self._id==another._id) and (self.tags == another.tags)
@@ -172,11 +195,10 @@ class PositionIdentifier:
     def type(self):
         return self._type
 
-    def __repr__(self):
+    def pretty_print(self):
         if(self._type == 1):
-            return "Cash {currency}".format(currency=self._id)
-        return "Equity {identifier}".format(identifier=self._id)
-
+            return "Cash {currency}".format(currency=self._id.pretty_print())
+        return "Equity {identifier}".format(identifier=self._id.pretty_print())
 
     def __construct_tag_id(self)->str:
         toreturn=""

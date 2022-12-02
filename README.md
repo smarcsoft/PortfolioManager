@@ -28,15 +28,17 @@ This is happening in frontend/lab.
 
 
 # Roadmap:
-- Notebook to demonstrate tags and selections
-- Support my portfolio
++ Notebook to demonstrate tags and selections
++ Support my portfolio
 - Save and Load portfolio and portfolio groups
 - Create the API documentation and publish it
+- Alert capabilities on relative/absolute profit and losses
+- Daily report (value, breakdowns, p&ls)
 - Create an environment per user
 - User registration capability
 - Feedback/Request for improvement section in UI
 - Post pilot on french finance forum
-- Alert capabilities on relative/absolute profit and losses
+
 
 
 # TODOs:

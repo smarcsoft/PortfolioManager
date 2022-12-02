@@ -14,6 +14,18 @@ class Positions:
     def __init__(self) -> None:
         self.__positions = {}
 
+    def state(self)->list:
+        '''
+        Returns a serializable state containing all the positions
+        '''
+        toreturn = []
+        for positionidentifier in self.__positions.keys():
+            element = {}
+            element['identifier'] = positionidentifier.state()
+            element['amount']=self.__positions[positionidentifier]
+            toreturn.append(element)
+        return toreturn
+
     def __getitem__(self, pi:PositionIdentifier)->number:
         return self.__positions[pi]
 
@@ -23,11 +35,11 @@ class Positions:
     def __next__(self):
         return self.__positions.__next__()
 
-    def __repr__(self) -> str:
+    def pretty_print(self) -> str:
         toreturn:str=""
         number_of_positions = len(self.__positions)
         for i, positionidentifier in enumerate(self.__positions):
-            toreturn = toreturn + str(self.__positions[positionidentifier]) + " " + str(positionidentifier)
+            toreturn = toreturn + str(self.__positions[positionidentifier]) + " " + positionidentifier.pretty_print()
             if(i != number_of_positions-1):
                 toreturn = toreturn + '\n'
         return toreturn

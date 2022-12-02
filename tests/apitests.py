@@ -4,6 +4,7 @@ from FundamentalData import UnitTestFundamentalData
 from Portfolios import UnitTestPortfolio, UnitTestValuations
 from PositionIdentifier import UnitTestTicker
 from Positions import UnitTestPositions
+from Session import UnitTestSession
 from TimeSeries import UnitTestTimeSeries
 from pmdata import UnitTestData
 
@@ -22,6 +23,7 @@ def apitestsuite():
     suite.addTest(UnitTestData('test_get_symbol_types'))
     suite.addTest(UnitTestData('test_search_isin'))
     suite.addTest(UnitTestData('test_msci_timeseries'))
+    suite.addTest(UnitTestData('test_cut2dates'))
     suite.addTest(UnitTestPortfolio('test_buy'))
     suite.addTest(UnitTestPortfolio('test_positions'))
     suite.addTest(UnitTestPortfolio('test_sell_short'))
@@ -44,6 +46,7 @@ def apitestsuite():
     suite.addTest(UnitTestValuations('test_cash'))
     suite.addTest(UnitTestValuations('test_index_valuation'))
     suite.addTest(UnitTestValuations('test_mac_portfolio'))
+    suite.addTest(UnitTestValuations('test_stocks_with_tags_portfolio'))
     suite.addTest(UnitTestTicker('test_ticker'))
     suite.addTest(UnitTestTicker('test_ticker_equal'))
     suite.addTest(UnitTestTicker('test_position_identifier_hash'))
@@ -56,7 +59,13 @@ def apitestsuite():
     suite.addTest(UnitTestTimeSeries('test_sub'))
     suite.addTest(UnitTestTimeSeries('test_mul'))
     suite.addTest(UnitTestTimeSeries('test_div'))
-    suite.addTest(UnitTestData('test_cut2dates'))
+    suite.addTest(UnitTestTimeSeries('test_dates'))
+    suite.addTest(UnitTestSession('test_a_new_user'))
+    suite.addTest(UnitTestSession('test_b_get_user'))
+    suite.addTest(UnitTestSession('test_c_new_session'))
+    suite.addTest(UnitTestSession('test_d_last_login'))
+    suite.addTest(UnitTestSession('test_e_portfolio_save_and_load'))
+    suite.addTest(UnitTestSession('test_f_delete_user'))
     return suite
 
 if __name__ == '__main__':

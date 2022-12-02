@@ -8,7 +8,7 @@ from exceptions import PMException
 from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY, Ticker,  check_currency
 from Positions import Positions
 from TimeSeries import TimeSeries
-from pmdata import get_fx
+from pmdata import fx_convert, get_fx
 from pmdata import get_timeseries, get_ticker
 
 
@@ -29,6 +29,15 @@ class Portfolio:
     def __init__(self, name:str="DEFAULT") -> None:
         self.positions:Positions = Positions()
         self.name = name
+
+    def state(self)->dict:
+        '''
+        Returns a serializable state (a dictionary) containing the portfolio state
+        '''
+        toreturn:dict={}
+        toreturn['name']=self.name
+        toreturn['positions'] = self.positions.state()
+        return toreturn
 
     def get_name(self)->str:
         return self.name
@@ -54,7 +63,8 @@ class Portfolio:
 
     def buy(self, ticker_code:str, quantity:number, tags:set=None ):
         '''
-        Adds an instrument in the portfolio
+        Adds an instrument in the portfolio.
+        Ticker code can be relative (without an exchange, which will then default to the US virtual exchange) or absolute (fully qualified)
         '''  
         if(ticker_code.find(".") != -1):
             (ticker,exchange) = ticker_code.split('.')
@@ -116,11 +126,6 @@ class Portfolio:
         else:
             raise PMException("Cannot sell {ticker_code}. Either the portfolio does not own the instrument or it does not have enough quantity of this instrument.".format(ticker_code=ticker))
 
-
-    def get_shares(self, ticker_code:str , exchange:str='US', type:str =DEFAULT_INSTRUMENT_TYPE,  isin:str="", name:str="", country:str="USA",  currency:str="USD", tags:set=None )->number:
-        return self._get_shares(PositionIdentifier(EQUITY, Ticker(ticker_code, exchange, type,isin,name, country, currency), tags))
-
-
     def get_position_amount(self, pi:PositionIdentifier)->number:
         return self.positions[pi]
 
@@ -131,11 +136,14 @@ class Portfolio:
     def valuator(self):
         return PortfolioValuator(self)
 
-    def _get_shares(self, ticker:PositionIdentifier)->number:
-        return self.positions[ticker]
+    def get_shares(self, ticker:str, exchange:str="US", tags:set=None)->number:
+        return self.positions[PositionIdentifier(EQUITY, Ticker(ticker, exchange), tags)]
 
-    def __repr__(self) -> str:
-        return "Portfolio " + self.name +" \n" + str(self.positions)
+    def pretty_print(self) -> str:
+        return "Portfolio " + self.name +" \n" + self.positions.pretty_print()
+
+    def size(self):
+        return len(self.positions)
 
 class PortfolioGroup:
     def __init__(self, name:str="DEFAULT") -> None:
@@ -187,66 +195,47 @@ class PortfolioGroup:
         return PortfolioGroupValuator(self)
 
 class InstrumentValuator:
-    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency) -> None:
-        self.target_currency = target_currency
+    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier) -> None:
         self.portfolio = portfolio
         self.pi = pi
 
     @abc.abstractmethod
-    def get_valuation(self, valdate:date)->number:
+    def get_valuation(self, valdate:date, target_currency:Currency)->number:
         raise NotImplementedError("get_valuation should have an implementation in derived classes")
 
-    def convert_to_target_currency(self, value:number, valdate:date, source_currency:Currency=DEFAULT_CURRENCY)->number:
-        if(source_currency != self.target_currency):
-            # Value the instrument to USD and then from USD to the target currency
-            value_usd = value
-            if(source_currency != Currency("USD")):
-                value_usd = self.__convert_to_usd(value, source_currency, valdate)
-
-            if(self.target_currency != Currency('USD')):
-                return self.__convert_usd_to_target(value_usd, self.target_currency, valdate)
-            return value_usd
-        return value
-
-
-    def __convert_usd_to_target(self, value:number, target_currency:Currency, valdate:date)->number:
-        fx = get_fx(target_currency.get_identifier(), valdate)
-        return value * fx
-
-    def __convert_to_usd(self, value:number, source_currency:Currency, valdate:date)->number:
-        # Get the FX rate
-        fx = get_fx(source_currency.get_identifier(), valdate)
-        return value/fx
-
+    def convert_to_target_currency(self, value:number, valdate:date, source_currency:str=DEFAULT_CURRENCY, target_currency:str=DEFAULT_CURRENCY)->number:
+        return fx_convert(value, source_currency, target_currency, valdate)
 
     @staticmethod
-    def valuator(portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency, **valuator_args):
+    def valuator(portfolio:Portfolio, pi:PositionIdentifier, **valuator_args):
         '''
         Returns the correct valuator for the right time of financial instrument.
+        Note that for an EquityValuator, you can pass an extra dpname parameter which will indicate which data point to value.
+        By default it is DEFAULT_VALUATION_DATAPOINT
         '''
         if(pi.type == CASH):
-            return CashValuator(portfolio, pi, target_currency)
+            return CashValuator(portfolio, pi)
         if(pi.type == EQUITY):
-            return EquityValuator(portfolio, pi, target_currency, **valuator_args)
+            return EquityValuator(portfolio, pi, **valuator_args)
         raise PMException("Could not create valuator for " + pi)
     
 
 class EquityValuator(InstrumentValuator):
-    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency, dpname=DEFAULT_VALUATION_DATAPOINT) -> None:
-        InstrumentValuator.__init__(self, portfolio, pi, target_currency)
+    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier, dpname=DEFAULT_VALUATION_DATAPOINT) -> None:
+        InstrumentValuator.__init__(self, portfolio, pi)
         self.valuation_data_point = dpname
 
-    def get_valuation(self, valdate:date)->number:
+    def get_valuation(self, valdate:date, target_currency:Currency)->number:
         closing_price = get_timeseries(full_ticker=self.pi.id.get_full_ticker(), datapoint_name=self.valuation_data_point).get(valdate)
-        return self.convert_to_target_currency(closing_price*self.portfolio.get_position_amount(self.pi), valdate, self.pi.id.get_currency())
+        return self.convert_to_target_currency(closing_price*self.portfolio.get_position_amount(self.pi), valdate, self.pi.id.currency.get_identifier(), target_currency.get_identifier())
 
 
 class CashValuator(InstrumentValuator):
-    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier, target_currency:Currency) -> None:
-        InstrumentValuator.__init__(self, portfolio,pi, target_currency)
+    def __init__(self, portfolio:Portfolio, pi:PositionIdentifier) -> None:
+        InstrumentValuator.__init__(self, portfolio,pi)
 
-    def get_valuation(self, valdate:date)->number:
-        return self.convert_to_target_currency(self.portfolio.get_position_amount(self.pi), valdate, self.pi.id)
+    def get_valuation(self, valdate:date, target_currency:Currency)->number:
+        return self.convert_to_target_currency(self.portfolio.get_position_amount(self.pi), valdate, self.pi.id.get_identifier(), target_currency.get_identifier())
 
 class IPorfolioValuator:
   
@@ -316,7 +305,7 @@ class PortfolioValuator(IPorfolioValuator):
     def get_valuation(self, valdate:date=None, dpname:str = DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->number:
         portfolio_valuation:number = 0.0
         for position_identifier in self.portfolio.get_positions():
-            instrument_value:number = InstrumentValuator.valuator(self.portfolio, position_identifier, Currency(ccy), dpname=dpname).get_valuation(valdate)
+            instrument_value:number = InstrumentValuator.valuator(self.portfolio, position_identifier, dpname=dpname).get_valuation(valdate, Currency(ccy))
             portfolio_valuation = portfolio_valuation + instrument_value
         return portfolio_valuation
 
@@ -638,12 +627,22 @@ class UnitTestValuations(unittest.TestCase):
         my_portfolio.buy('STLA.PA', 2923, tags={'SWISSQUOTE'})
 
         with_swissquote = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-09-01"))
-#        print(with_swissquote- with_cryptos)
         swissquote = my_portfolio.create("swissquote", {'SWISSQUOTE'})
         self.assertEqual(len(swissquote.get_positions()), 8)
         sqvalue = PortfolioValuator(portfolio=swissquote).get_valuation(date(2022,9,1))
         self.assertAlmostEqual(with_swissquote - with_cryptos, sqvalue, delta=1)
 
+    def test_stocks_with_tags_portfolio(self):
+        my_portfolio:Portfolio = Portfolio()
+        my_portfolio.buy('MSCI', 2578, tags={'PERFORMANCE SHARES'}) #Performance shares
+        my_portfolio.buy('MSCI', 3916, tags={'RESTRICTED SHARES'}) #Restricted shares
+        my_portfolio.buy('MSCI', 1110, tags={'STOCK OPTIONS'}) #Stock options
+        my_portfolio.buy('MSCI', 807, tags={'BROADRIDGE SHARES'})  #Bradridge shares
+        my_portfolio.buy('MSCI', 3000, tags={'MORGAN STANLEY SHARES'})  #Bradridge shares
+        v:PortfolioValuator = PortfolioValuator(portfolio=my_portfolio)
+        msci_stocks = v.get_valuation(date.fromisoformat("2022-11-27"))
+        self.assertEqual(len(my_portfolio.get_positions()), 5)
+        self.assertAlmostEqual(msci_stocks, 5845398.97, delta=0.01)
 
 if __name__ == '__main__':
     unittest.main()

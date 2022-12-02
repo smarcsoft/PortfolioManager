@@ -7,7 +7,7 @@ from shutil import rmtree
 from typing import TypedDict
 import unittest
  
-from Portfolios import Portfolio
+from Portfolios import Portfolio, PortfolioGroup
 from PositionIdentifier import CASH, EQUITY
 from exceptions import PMException
 from config import get_config, init_logging
@@ -40,6 +40,33 @@ class Session:
         portfolio_file = os.path.join(user_portfolio_dir, portfolio.get_name()+".json")
         with open(portfolio_file, "wt") as pf:
             json.dump(p, pf)
+
+    def save_portfolio_group(self,pg:PortfolioGroup):
+        p:dict = pg.state()
+        db_loc = get_config("DB_LOCATION")
+        user_dir = os.path.join(db_loc,"USERS", self.user["email"])
+        user_portfolio_dir = os.path.join(user_dir,"PORTFOLIO_GROUPS")
+        if(not exists(user_portfolio_dir)):
+            # Create the directory
+            os.mkdir(user_portfolio_dir)
+        portfolio_file = os.path.join(user_portfolio_dir, pg.get_name()+".json")
+        with open(portfolio_file, "wt") as pf:
+            json.dump(p, pf)
+
+    def load_portfolio_group(self,name:str):
+        db_loc = get_config("DB_LOCATION")
+        user_dir = os.path.join(db_loc,"USERS", self.user["email"])
+        user_portfolio_dir = os.path.join(user_dir,"PORTFOLIO_GROUPS")
+        portfolio_file = os.path.join(user_portfolio_dir, name+".json")
+        with open(portfolio_file, "rt") as pf:
+            pgstate = json.load(pf)
+        # Recreate the portfolio group from its state
+        to_return = PortfolioGroup(pgstate['name'])
+        for p in pgstate["portfolios"]:
+            portfolio:Portfolio = self._unmarshall_portfolio(p['portfolio'])
+            to_return.add(portfolio)
+        return to_return
+
 
     def load_portfolio(self, name:str)->Portfolio:
         db_loc = get_config("DB_LOCATION")
@@ -201,9 +228,9 @@ class UnitTestSession(unittest.TestCase):
             return
         self.fail("Should not have been there")
 
-    def test_f_delete_user(self):
-        user = get_user("sebTest@yahoo.com")
-        delete_user(user)
+    # def test_g_delete_user(self):
+    #     user = get_user("sebTest@yahoo.com")
+    #     delete_user(user)
 
     def test_c_new_session(self):
         user = get_user("sebTest@yahoo.com")
@@ -253,6 +280,28 @@ class UnitTestSession(unittest.TestCase):
         val1 = loaded_portfolio.valuator().get_valuation(date(2022,11,27))
         val2 = my_portfolio.valuator().get_valuation(date(2022,11,27))
         self.assertEqual(val1, val2)
+
+    def test_f_portfolio_group_save_and_load(self):
+        user = get_user(email="sebTest@yahoo.com")
+        session:Session =  create_session(user)
+        pg:PortfolioGroup = PortfolioGroup("My Investments")
+        p:Portfolio = Portfolio("My cash")
+        p.add('USD', 67000)
+        p.add('CHF', 480000)
+        pg.add(p)
+        p2:Portfolio = Portfolio()
+        p2.buy('MSFT', 10)
+        p2.buy('MSFT', 20)
+        pg.add(p2)
+        session.save_portfolio_group(pg)
+
+        # Load the portfolio group back
+        pg2 = session.load_portfolio_group(pg.get_name())
+        # Value the 2 portfolio groups and compare
+
+        v1 = pg.valuator().get_valuation(date(2022,11,27))
+        v2 = pg2.valuator().get_valuation(date(2022,11,27))
+        self.assertAlmostEqual(v1,v2, delta=0.1)
 
 if __name__ == '__main__':
     init_logging()

@@ -150,16 +150,26 @@ class PortfolioGroup:
         self.__name = name
         self.__portfolios = {}
 
-    def add(self, p:Portfolio, name:str='DEFAULT'):
-        if name not in self.__portfolios:
-            self.__portfolios[name] = list()
-        self.__portfolios[name].append(p)
+    def get_name(self):
+        return self.__name
+
+    def add(self, p:Portfolio):
+        self.__portfolios[p.get_name()] = p
 
     def __len__(self):
         '''
         Returns the number of groups, not the number of portfolios
         '''
         return len(self.__portfolios.keys())
+    
+    def state(self):
+        return {'name':self.__name, 'portfolios':self._marshall_portfolios()}
+
+    def _marshall_portfolios(self)->list:
+        to_return=[]
+        for name, porfolio in self.__portfolios.items():
+            to_return.append({"portfolio_name":name, "portfolio":porfolio.state()})
+        return to_return
 
     def get(self, name:str)->list:
         return self.__portfolios(name)
@@ -175,9 +185,8 @@ class PortfolioGroup:
         '''
         toreturn = list()
         for portfolio_set_name in self.__portfolios:
-            portfolio_list = self.__portfolios[portfolio_set_name]
-            for p in portfolio_list:
-                toreturn.append(p)
+            portfolio = self.__portfolios[portfolio_set_name]
+            toreturn.append(portfolio)
         return toreturn
 
     def __repr__(self) -> str:

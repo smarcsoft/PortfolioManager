@@ -154,6 +154,8 @@ class PortfolioGroup:
         return self.__name
 
     def add(self, p:Portfolio):
+        if p.get_name() in self.__portfolios:
+            raise PMException(f"Portfolio {p.get_name()} exists in the portfolio group {self.__name}. It cannot be added twice. Please remove or rename it")
         self.__portfolios[p.get_name()] = p
 
     def __len__(self):
@@ -473,12 +475,12 @@ class UnitTestPortfolio(unittest.TestCase):
         p2:Portfolio = Portfolio("My cash outside France")
         p2.add('USD', 67000)
         p2.add('CHF', 480000)
-        pg.add(p, "EQUITIES")
-        pg.add(p2, "CASH")
+        pg.add(p)
+        pg.add(p2)
         self.assertTrue(len(pg), 2)
         p3:Portfolio = Portfolio("Cash in Europe")
         p3.add('EUR', 25000)
-        pg.add(p3, "CASH")
+        pg.add(p3)
         self.assertTrue(len(pg), 3)
 
 
@@ -531,28 +533,28 @@ class UnitTestValuations(unittest.TestCase):
         my_portfolio.buy('MSCI', 3916) #Stock options
         my_portfolio.buy('MSCI', 807)  #Bradridge shares
         my_portfolio.add('USD', 1000000)
-        PortfolioValuator(portfolio=my_portfolio).get_valuations().get(date.fromisoformat("2022-09-01"))
+        PortfolioValuator(portfolio=my_portfolio).get_valuations().get(date(2022,9,1))
 
 
     def test_portfolio_group(self):
-        p:Portfolio = Portfolio()
+        p:Portfolio = Portfolio("First investment")
         p.buy('MSFT', 10)
         p.buy('CSCO', 20)
         pg = PortfolioGroup()
         pg.add(p)
-        self.assertAlmostEqual((pg.valuator().get_valuation(date.fromisoformat("2022-09-01"))), 3495, delta=1)
-        p2:Portfolio = Portfolio()
+        self.assertAlmostEqual((pg.valuator().get_valuation(date(2022,9,1))), 3495, delta=1)
+        p2:Portfolio = Portfolio("Second investment")
         p.buy('MSCI', 50)
         pg.add(p2)
-        self.assertAlmostEqual((pg.valuator().get_valuation(date.fromisoformat("2022-09-01"))), 26278, delta = 1)
+        self.assertAlmostEqual((pg.valuator().get_valuation(date(2022,9,1))), 26278, delta = 1)
 
     def test_portfolio_group2(self):
         pg:PortfolioGroup = PortfolioGroup("My Investments")
         p:Portfolio = Portfolio("My cash")
         p.add('USD', 67000)
         p.add('CHF', 480000)
-        pg.add(p, "CASH PORTFOLIO GROUP")
-        self.assertAlmostEqual(pg.valuator().get_valuation(date.fromisoformat("2022-09-01")),557246, delta=1)
+        pg.add(p)
+        self.assertAlmostEqual(pg.valuator().get_valuation(date(2022,9,1)),557246, delta=1)
         p2:Portfolio = Portfolio()
         p2.buy('MSFT', 10)
         p2.buy('MSFT', 20)

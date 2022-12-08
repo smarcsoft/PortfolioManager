@@ -18,3 +18,5 @@ sample_portfolio_index demonstrates how to rebase a portfolio and get its perfor
 ## Multi-currency support
 sample_portfolio_multicurrency_valuation demonstrates the multi currency capabilities and how to valuate in multiple currencies
 
+## Saving and Loading portfolios
+sample_portfolio_persistence demonstrates how to load and save portfolio and portfolio groups

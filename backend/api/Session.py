@@ -228,9 +228,9 @@ class UnitTestSession(unittest.TestCase):
             return
         self.fail("Should not have been there")
 
-    # def test_g_delete_user(self):
-    #     user = get_user("sebTest@yahoo.com")
-    #     delete_user(user)
+    def test_g_delete_user(self):
+        user = get_user("sebTest@yahoo.com")
+        delete_user(user)
 
     def test_c_new_session(self):
         user = get_user("sebTest@yahoo.com")

@@ -101,11 +101,6 @@ class SessionEncoder(json.JSONEncoder):
         else:
             return json.JSONEncoder.default(self, object)
 
-def _session_decoder(session:dict):
-    toreturn = Session(datetime.strptime(session['login_time'], "%Y-%m-%d-%H-%M-%S"),session['user'] )
-    toreturn.activity = session['activity']
-    return toreturn
-
 def get_last_login(u:User)->datetime:
     '''
     Get the last time the user logged in

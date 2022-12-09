@@ -237,8 +237,12 @@ class EquityValuator(InstrumentValuator):
         self.valuation_data_point = dpname
 
     def get_valuation(self, valdate:date, target_currency:Currency)->number:
-        closing_price = get_timeseries(full_ticker=self.pi.id.get_full_ticker(), datapoint_name=self.valuation_data_point).get(valdate)
+        try:
+            closing_price = get_timeseries(full_ticker=self.pi.id.get_full_ticker(), datapoint_name=self.valuation_data_point).get(valdate)
+        except PMException as e:
+            raise PMException(f"Cannot get the valuation of {self.pi.id.get_full_ticker()} at date {valdate} for data point {self.valuation_data_point} in currency {target_currency.get_identifier()} due to the underlying error: {str(e)}")
         return self.convert_to_target_currency(closing_price*self.portfolio.get_position_amount(self.pi), valdate, self.pi.id.currency.get_identifier(), target_currency.get_identifier())
+        
 
 
 class CashValuator(InstrumentValuator):

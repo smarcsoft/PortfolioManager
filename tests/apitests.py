@@ -71,7 +71,8 @@ def apitestsuite():
     suite.addTest(UnitTestSession('test_d_last_login'))
     suite.addTest(UnitTestSession('test_e_portfolio_save_and_load'))
     suite.addTest(UnitTestSession('test_f_portfolio_group_save_and_load'))
-    suite.addTest(UnitTestSession('test_g_delete_user'))
+    suite.addTest(UnitTestSession('test_g_save_dated_portfolio'))
+    suite.addTest(UnitTestSession('test_z_delete_user'))
     return suite
 
 if __name__ == '__main__':

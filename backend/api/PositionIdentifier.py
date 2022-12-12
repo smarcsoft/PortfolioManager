@@ -173,6 +173,20 @@ class PositionIdentifier:
         to_return['tags']=list(self._tags)
         return to_return
 
+    @staticmethod
+    def create_from_state(state:dict):
+        if state['type'] == CASH:
+            ccy:Currency = Currency(state['id']['currency'])
+            tags:set = state['tags']
+            return PositionIdentifier(CASH, ccy, tags)
+
+        if state['type'] == EQUITY:
+            ticker:Ticker = Ticker(state['id']['code'], state['id']['exchange'], state['id']['type'], state['id']['isin'], state['id']['name'], state['id']['country'], state['id']['currency']['currency'])
+            tags:set = state['tags']
+            return PositionIdentifier(EQUITY, ticker, tags)
+        
+        return None
+
     def __eq__(self, another):
         return (self._type == another._type) and (self._id==another._id) and (self.tags == another.tags)
 

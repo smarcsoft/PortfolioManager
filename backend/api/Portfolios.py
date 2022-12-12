@@ -52,9 +52,26 @@ class Portfolio:
         toreturn:dict={}
         # Evaluate the portfolio constituents before serialization
         self._evaluate_constituents()
-        #TODO change the serialization to include transactions
         toreturn['name']=self.name
-        toreturn['positions'] = self.positions.state()
+        toreturn['positions'] = self._serialize_positions()
+        toreturn['origin'] = self.origin
+        return toreturn
+
+    def _serialize_positions(self)->list:
+        to_return = []
+        dates = sorted(self.positions.keys())
+        for date in dates:
+            state={'positions':self._serialize_constituents(self.positions[date]['positions']), 'transactions':self._serialize_transactions(self.positions[date]['transactions']), 'date':date}
+            to_return.append(state)
+        return to_return
+
+    def _serialize_constituents(self, pos:Positions):
+        return pos.state()
+
+    def _serialize_transactions(self, transactions:list)->list:
+        toreturn = []
+        for transaction in transactions:
+            toreturn.append(transaction.state())
         return toreturn
 
     def get_name(self)->str:
@@ -176,12 +193,10 @@ class Portfolio:
         toreturn._set_positions(positions, date)
         return toreturn
 
-    def _buy(self, ticker:PositionIdentifier, quantity:number, date:datetime):
+    def _process_transaction(self, transaction:Transaction):
         # get the portfolio positions for the given date
+        date:datetime = transaction.get_date()
         positions = self.get_positions(date)
-        # Tagged positions are not aggregared with non-tagged positions. They are aggregated together 
-        # if they have the same tickers and tags
-        transaction = Transaction(BUY, ticker, quantity, date)
         # Copy the positions and save the new portfolio at date
         new_positions = positions.copy()
         new_positions.apply_transaction(transaction)
@@ -191,6 +206,13 @@ class Portfolio:
         self.positions[date]= {"positions":new_positions, "transactions":txs}
         # Invalidate the portfolio constituents from date
         self._invalidate_constituents_evaluation(date+timedelta(days=1))
+
+    def _buy(self, ticker:PositionIdentifier, quantity:number, date:datetime):
+        
+        # Tagged positions are not aggregared with non-tagged positions. They are aggregated together 
+        # if they have the same tickers and tags
+        transaction = Transaction(BUY, ticker, quantity, date)
+        self._process_transaction(transaction)
 
     def _get_transactions(self, date:datetime):
         if date in self.positions:
@@ -227,15 +249,7 @@ class Portfolio:
      
     def _sell(self, ticker:PositionIdentifier, quantity:number, date:datetime):
         transaction = Transaction(SELL, ticker, quantity,date)
-        positions = self.get_positions(date)
-        new_positions = positions.copy()
-        new_positions.apply_transaction(transaction)
-        # Record the transaction
-        txs:list = self._get_transactions(date)
-        txs.append(transaction)
-        self.positions[date]= {"positions":new_positions, "transactions":txs}
-        # Invalidate the portfolio constituents from date
-        self._invalidate_constituents_evaluation(date+timedelta(days=1))
+        self._process_transaction(transaction)
 
     def get_position_amount(self, pi:PositionIdentifier, date:datetime=None)->number:
         '''
@@ -878,6 +892,8 @@ class UnitTestValuations(unittest.TestCase):
         self.assertEqual(v5, 450)
         v6=p.valuator().get_valuation(datetime(2022,9,12))
         self.assertEqual(v6, 200)
+
+        
 
     def test_dated_buy_multiccy(self):
         p:Portfolio = Portfolio("test", datetime(2022,9,1))

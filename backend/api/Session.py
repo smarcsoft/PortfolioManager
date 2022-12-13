@@ -9,6 +9,8 @@ import unittest
  
 from Portfolios import Portfolio, PortfolioGroup
 from PositionIdentifier import CASH, EQUITY
+from Transaction import Transaction
+from dateutils import strtodatetime
 from exceptions import PMException
 from config import get_config, init_logging
 from os.path import exists
@@ -39,7 +41,7 @@ class Session:
             os.mkdir(user_portfolio_dir)
         portfolio_file = os.path.join(user_portfolio_dir, portfolio.get_name()+".json")
         with open(portfolio_file, "wt") as pf:
-            json.dump(p, pf)
+            json.dump(p, pf, default=str)
 
     def save_portfolio_group(self,pg:PortfolioGroup):
         p:dict = pg.state()
@@ -51,7 +53,7 @@ class Session:
             os.mkdir(user_portfolio_dir)
         portfolio_file = os.path.join(user_portfolio_dir, pg.get_name()+".json")
         with open(portfolio_file, "wt") as pf:
-            json.dump(p, pf)
+            json.dump(p, pf, default=str)
 
     def load_portfolio_group(self,name:str):
         db_loc = get_config("DB_LOCATION")
@@ -81,16 +83,18 @@ class Session:
         
     def _unmarshall_portfolio(self, state:dict)->Portfolio:
         # Recreate the portfolio from its state
-        toreturn:Portfolio=Portfolio(state['name'])
-        positions = state['positions']
-        for position in positions:
-            position_identifier = position['identifier']
-            position_amount = position['amount']
-            if(position_identifier['type'] == EQUITY): 
-                toreturn.buy(position_identifier['id']['code']+'.'+position_identifier['id']['virtual_exchange'], position_amount, set(position_identifier['tags']))
-            if(position_identifier['type'] == CASH): 
-                toreturn.add(position['identifier']['id']['currency'], position_amount, set(position_identifier['tags']))
+        toreturn:Portfolio=Portfolio(state['name'], strtodatetime(state['origin']))
+        # Replay all historical transactions on the portfolio to recreate its state
+        # This is needed to keep the historical portfolio consituents and avoid altering the portfolio historically
+        history = state['positions']
+        for date in history:
+             #Get the transactions
+            transactions = date['transactions']
+            for transaction in transactions:
+                t:Transaction = Transaction.create_from_state(transaction)
+                toreturn._process_transaction(t)
         return toreturn
+
 
 
 class SessionEncoder(json.JSONEncoder):
@@ -223,7 +227,7 @@ class UnitTestSession(unittest.TestCase):
             return
         self.fail("Should not have been there")
 
-    def test_g_delete_user(self):
+    def test_z_delete_user(self):
         user = get_user("sebTest@yahoo.com")
         delete_user(user)
 
@@ -272,8 +276,8 @@ class UnitTestSession(unittest.TestCase):
         # Load the portfolio back
         loaded_portfolio = session.load_portfolio("DEFAULT")
         # Value the 2 portfolios and check if the valuations are identical
-        val1 = loaded_portfolio.valuator().get_valuation(date(2022,11,27))
-        val2 = my_portfolio.valuator().get_valuation(date(2022,11,27))
+        val1 = loaded_portfolio.valuator().get_valuation(datetime(2022,11,27))
+        val2 = my_portfolio.valuator().get_valuation(datetime(2022,11,27))
         self.assertEqual(val1, val2)
 
     def test_f_portfolio_group_save_and_load(self):
@@ -294,9 +298,22 @@ class UnitTestSession(unittest.TestCase):
         pg2 = session.load_portfolio_group(pg.get_name())
         # Value the 2 portfolio groups and compare
 
-        v1 = pg.valuator().get_valuation(date(2022,11,27))
-        v2 = pg2.valuator().get_valuation(date(2022,11,27))
+        v1 = pg.valuator().get_valuation(datetime(2022,11,27))
+        v2 = pg2.valuator().get_valuation(datetime(2022,11,27))
         self.assertAlmostEqual(v1,v2, delta=0.1)
+
+
+    def test_g_save_dated_portfolio(self):
+        user = get_user(email="sebTest@yahoo.com")
+        session:Session =  create_session(user)
+        p:Portfolio = Portfolio("test_dated", datetime(2022,9,1))
+        p.add("USD", 200, datetime(2022,9,5))
+        p.add("USD", 150, datetime(2022,9,2), tags={'First position'})
+        p.withdraw("USD", 150, datetime(2022,9,10))
+        p.add("USD", 100, datetime(2022,9,1), tags={'Original position'})
+        p.withdraw("USD", 40, datetime(2022,9,10))
+        p.add("CHF", 500, datetime(2022,10,2), tags={'Swiss franc'})
+        session.save_portfolio(p)
 
 if __name__ == '__main__':
     init_logging()

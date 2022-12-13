@@ -25,12 +25,13 @@ This is happening in fronend/startapp. Read the README there.
 ## Compute server
 It runs jupyter server.
 This is happening in frontend/lab.
-
+See README under the lab directory
 
 # Roadmap:
 + Notebook to demonstrate tags and selections
 + Support my portfolio
-- Save and Load portfolio and portfolio groups
++ Save and Load portfolio and portfolio groups
+- Support dated transactions
 - Create the API documentation and publish it
 - Alert capabilities on relative/absolute profit and losses
 - Daily report (value, breakdowns, p&ls)

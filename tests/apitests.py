@@ -35,6 +35,7 @@ def apitestsuite():
     suite.addTest(UnitTestPortfolio('test_portfolio_tags'))
     suite.addTest(UnitTestPortfolio('test_multiple_currencies'))
     suite.addTest(UnitTestPortfolio('test_cryptos'))
+    suite.addTest(UnitTestValuations('test_portfolio_ts'))
     suite.addTest(UnitTestValuations('test_currency_conversion'))
     suite.addTest(UnitTestValuations('test_get_valuations'))
     suite.addTest(UnitTestValuations('test_get_start_date'))
@@ -47,6 +48,12 @@ def apitestsuite():
     suite.addTest(UnitTestValuations('test_index_valuation'))
     suite.addTest(UnitTestValuations('test_mac_portfolio'))
     suite.addTest(UnitTestValuations('test_stocks_with_tags_portfolio'))
+    suite.addTest(UnitTestValuations('test_dated_buy'))
+    suite.addTest(UnitTestValuations('test_dated_buy2'))
+    suite.addTest(UnitTestValuations('test_dated_buy_disorder'))
+    suite.addTest(UnitTestValuations('test_valuation_before_transaction'))
+    suite.addTest(UnitTestValuations('test_dated_buy_multiccy'))
+    suite.addTest(UnitTestValuations('test_portfolio_transaction_evaluation'))
     suite.addTest(UnitTestTicker('test_ticker'))
     suite.addTest(UnitTestTicker('test_ticker_equal'))
     suite.addTest(UnitTestTicker('test_position_identifier_hash'))
@@ -66,7 +73,8 @@ def apitestsuite():
     suite.addTest(UnitTestSession('test_d_last_login'))
     suite.addTest(UnitTestSession('test_e_portfolio_save_and_load'))
     suite.addTest(UnitTestSession('test_f_portfolio_group_save_and_load'))
-    suite.addTest(UnitTestSession('test_g_delete_user'))
+    suite.addTest(UnitTestSession('test_g_save_dated_portfolio'))
+    suite.addTest(UnitTestSession('test_z_delete_user'))
     return suite
 
 if __name__ == '__main__':

@@ -1,5 +1,8 @@
 import abc
+import datetime
 import unittest
+
+from numpy import number
 from exceptions import PMException
 
 
@@ -145,6 +148,9 @@ class Ticker(IInstrumentIdentifier):
     def isin(self):
         return self._isin
 
+    def __repr__(self) -> str:
+        return self.pretty_print()
+
     def pretty_print(self):
         return "Ticker {code} for company {name} with isin {isin}".format(code = self._code, name = self._name if len(self._name) != 0 else "UNKNOWN", isin = self._isin if (self._isin != None) and (len(self._isin) != 0) else "UNKNOWN")
 
@@ -172,6 +178,20 @@ class PositionIdentifier:
         to_return['id']=self._id.state()
         to_return['tags']=list(self._tags)
         return to_return
+
+    @staticmethod
+    def create_from_state(state:dict):
+        if state['type'] == CASH:
+            ccy:Currency = Currency(state['id']['currency'])
+            tags:set = state['tags']
+            return PositionIdentifier(CASH, ccy, tags)
+
+        if state['type'] == EQUITY:
+            ticker:Ticker = Ticker(state['id']['code'], state['id']['exchange'], state['id']['type'], state['id']['isin'], state['id']['name'], state['id']['country'], state['id']['currency']['currency'])
+            tags:set = state['tags']
+            return PositionIdentifier(EQUITY, ticker, tags)
+        
+        return None
 
     def __eq__(self, another):
         return (self._type == another._type) and (self._id==another._id) and (self.tags == another.tags)

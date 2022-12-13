@@ -3,6 +3,8 @@ $base_dir = Split-Path $script_dir -Parent
 $base_dir = Split-Path $base_dir -Parent
 $Env:PYTHONPATH = "$base_dir\backend\api;$base_dir\utils"
 $Env:DB_LOCATION= "$base_dir\backend\db"
+$Env:PM_CONFIG_LOCATION= "$base_dir\backend\config"
+$Env:PM_LOGGING_LOCATION= "$base_dir\frontend\lab\config"
 Write-Host "Starting jupiter lab..."
 Write-Host "Base directory:$base_dir"
 Write-Host "PYTHONPATH:$Env:PYTHONPATH"

@@ -68,43 +68,54 @@ def process_arguments():
         update = True
     return (exchange_list, config_file, update)
 
-def init_config(logger=None, configfile:str=DEFAULT_CONFIG_FILE):
+def init_config(logger:str=None, configfile:str=DEFAULT_CONFIG_FILE):
     '''
     Initializes the configuration subsystem so that get_config() works.
     '''
-    global __logger, __configfile
+    global __configfile, __logger
     # Check existence of the config file and throw an exception if it does not exist
     if not os.path.exists(configfile):
-        raise PMException("Cannot initialize configuration subsystem:" + configfile+" does not exists")
+        # Revert back to the environment variable
+        location_from_env = os.environ.get("PM_CONFIG_LOCATION")
+        if(location_from_env == None): raise PMException(f"Cannot initialize configuration subsystem: {configfile} does not exists")
+        configfile = location_from_env
     __configfile = configfile
-    if logger != None:
-        __logger = logger
-    else:
-        if os.path.exists(DEFAULT_LOGGING_CONFIG_FILE):
-            logging.config.fileConfig(DEFAULT_LOGGING_CONFIG_FILE)
-            __logger = logging.getLogger("config")
+    if(logger == None): logger = "root"
+    __logger = init_logging(logger)
 
-def init_logging(loggername:str="root", configfile:str=DEFAULT_CONFIG_FILE)->logging.Logger:
+def init_logging(loggername:str="root", configfile:str=DEFAULT_LOGGING_CONFIG_FILE)->logging.Logger:
     '''
     Initialized the logging infrastructure.
     Reads the logging configuration from the configuration file configfile and initializes the logging subsystem accordingly.
     Returns the initialized logger.
     '''
-    init_config(None, configfile)
-    # Get the logging subsystem configuration 
-    log_conf_file_loc = get_config("LOGGING_CONFIGURATION")
-    if(len(log_conf_file_loc) == 0):
-        #Fall back to detault
-        log_conf_file_loc = DEFAULT_LOGGING_CONFIG_FILE
-    if(os.path.exists(log_conf_file_loc)):
-        logging.config.fileConfig(log_conf_file_loc)
-        return logging.getLogger(loggername)
+    # Logging configuration file can be overriden by the environment
+    logging_from_env = os.environ.get("PM_LOGGING_LOCATION")
+    if(logging_from_env == None):
+        # Get the logging subsystem configuration 
+        log_conf_file_loc = get_config("LOGGING_CONFIGURATION")
+        if(len(log_conf_file_loc) == 0):
+            #Fall back to detault
+            log_conf_file_loc = configfile
+        if(os.path.exists(log_conf_file_loc)):
+            # print(f"Using logging configuration {log_conf_file_loc}")
+            logging.config.fileConfig(log_conf_file_loc)
+            return logging.getLogger(loggername)
+        else:
+            raise PMException(f"Cannot initialize logging subsystem with {log_conf_file_loc}: The file does not exist")
     else:
-        raise PMException("Cannot initialize logging subsystem with " + log_conf_file_loc+": The file does not exist")
+        logging_from_env = os.path.join(logging_from_env, "logging.conf")
+        if(os.path.exists(logging_from_env)):
+            # print(f"Using logging configuration {logging_from_env}")
+            logging.config.fileConfig(logging_from_env)
+            return logging.getLogger(loggername)
+        else:
+            raise PMException(f"Cannot initialize logging subsystem with {logging_from_env}: The file does not exist")
+
 
 def get_config(key:str)->str:
     '''
-    Read the configuration file is needed and return the entry identified by key.
+    Read the configuration file if needed and return the entry identified by key.
 
     Returns an empty string if the key is not found.
 

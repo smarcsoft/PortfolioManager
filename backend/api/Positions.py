@@ -25,6 +25,10 @@ class Positions:
         return toreturn
 
     def apply_transaction(self, transaction: Transaction):
+        '''
+        Recomputes the composition of the portfolio and if eval is true evaluate the value of the transaction
+        Returns 0 if eval is false or the value of the transaction if eval is true
+        '''
         quantity = transaction.get_quantity()
         pi = transaction.get_position_identifier()
         if(transaction.get_transaction_type() == BUY):
@@ -32,7 +36,6 @@ class Positions:
                 self[pi] = self[pi] + quantity
             else:
                 self[pi] = quantity
-            return
             
         if(transaction.get_transaction_type() == SELL):
             if((pi in self) and (self[pi] >= quantity)):
@@ -64,11 +67,8 @@ class Positions:
 
     def pretty_print(self) -> str:
         toreturn:str=""
-        number_of_positions = len(self.__positions)
         for i, positionidentifier in enumerate(self.__positions):
-            toreturn = toreturn + str(self.__positions[positionidentifier]) + " " + positionidentifier.pretty_print()
-            if(i != number_of_positions-1):
-                toreturn = toreturn + '\n'
+            toreturn = toreturn + str(self.__positions[positionidentifier]) + " " + positionidentifier.pretty_print() +"\n"
         return toreturn
 
     def __setitem__(self, id:PositionIdentifier, value:number):

@@ -1,6 +1,6 @@
 import datetime
 from numpy import number
-from PositionIdentifier import PositionIdentifier
+from PositionIdentifier import CASH, EQUITY, PositionIdentifier
 from dateutils import strtodatetime 
 
 BUY=0
@@ -32,6 +32,7 @@ class Transaction:
     
     def state(self)->dict:
         return {'type':self.__type, "positionidentifier":self.__positionidentifier.state(), "quantity": self.__quantity, "date":self.__date}
+
 
     @staticmethod
     def create_from_state(state:dict):

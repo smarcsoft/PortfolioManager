@@ -25,7 +25,7 @@ This is happening in fronend/startapp. Read the README there.
 ## Compute server
 It runs jupyter server.
 This is happening in frontend/lab.
-
+See README under the lab directory
 
 # Roadmap:
 + Notebook to demonstrate tags and selections

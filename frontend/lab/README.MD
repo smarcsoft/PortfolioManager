@@ -18,6 +18,12 @@ voila
 
 Please prefer the run_jupiter.sh over the manual procedure.
 
+### Configuration
+The configuration is driven by the following environment variables overriding the default values.
+In order to find the pm.conf configuration file, the environment variable PM_CONFIG_LOCATION can be used.
+In order to find the logging.conf configuration file, the environment variable PM_LOGGING_LOCATION can be used. It will then override whatever is found in the pm.conf file.
+In order to find the location of the database, the environment variable DB_LOCATION can be used. See run_jupiter.sh.
+
 ## To expose jupiter notebooks on the internet
 ## One-time on the compute server:
 jupyter server --generate-config generates /home/smarcsoft/.jupyter/jupyter_server_config.py
@@ -34,25 +40,6 @@ c.ServerApp.allow_remote_access = True
 
 jupyter notebook runs at http://localhost:8888/
 jupyter server runs on port 9999.
-
-## Operations on the proxy:
-/etc/init.d/bitnami start/stop
-The correct proxy configuration is the following (after 2 days of research/work)
-<VirtualHost 172.26.1.230>
-  ProxyPreserveHost On
-  ProxyRequests Off
-  ProxyPass / http://[computeIP]:9999/
-  ProxyPassReverse / http://[computeIP]:9999/
-  RequestHeader set Origin "http://[computeIP]:9999"
-  RequestHeader set Host "[computePrivateIP]"
-  ServerName pm.smarcsoft.com
-
-  <Location "/api/kernels"> 
-   ProxyPass ws://[computeIP]:9999/api/kernels
-   ProxyPassReverse ws://[computeIP]:9999/api/kernels
-  </Location>
-</VirtualHost>
-
 
 # Node and REACT setup
 ## One time

@@ -1,5 +1,8 @@
 import abc
+import datetime
 import unittest
+
+from numpy import number
 from exceptions import PMException
 
 
@@ -144,6 +147,9 @@ class Ticker(IInstrumentIdentifier):
     @property
     def isin(self):
         return self._isin
+
+    def __repr__(self) -> str:
+        return self.pretty_print()
 
     def pretty_print(self):
         return "Ticker {code} for company {name} with isin {isin}".format(code = self._code, name = self._name if len(self._name) != 0 else "UNKNOWN", isin = self._isin if (self._isin != None) and (len(self._isin) != 0) else "UNKNOWN")

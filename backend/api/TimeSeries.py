@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import datetime
 import types
 import unittest
 import numpy as np
@@ -21,6 +22,9 @@ class TimeSeries:
     elements of data between the start date and the end date
     '''
     def __init__(self, ts:np.ndarray, start_date:date=None, end_date:date=None, fill_method=None):
+        # Downgrade datetimes to dates to avoid nasty side effects.
+        if isinstance(start_date, datetime.datetime): start_date=start_date.date()
+        if isinstance(end_date, datetime.datetime): end_date=end_date.date()
         self.time_series = ts
         self.start_date = start_date
         self.end_date = end_date

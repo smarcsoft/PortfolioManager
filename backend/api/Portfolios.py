@@ -5,13 +5,13 @@ import unittest
 from numpy import ndarray, number
 import numpy
 import pandas as pd
-from Transaction import BUY, SELL, Transaction
-from dateutils import todatetime
+from Transaction import Transaction, BUY, SELL
+from dateutils import strtodatetime, todatetime
 from exceptions import PMException
-from PositionIdentifier import PositionIdentifier, Currency, CASH, EQUITY, Ticker,  check_currency
+from PositionIdentifier import Currency, PositionIdentifier, CASH, EQUITY, Ticker, check_currency
 from Positions import Positions
 from TimeSeries import TimeSeries
-from pmdata import fx_convert, get_fx
+from pmdata import fx_convert
 from pmdata import get_timeseries, get_ticker
 from config import init_logging
 from copy import deepcopy
@@ -25,6 +25,7 @@ DEFAULT_MARKET_CODE='US'
 DEFAULT_ORIGIN = datetime(2000,1,1)
 
 logger:Logger = init_logging("api")
+
 
 class Portfolio:
     '''
@@ -128,45 +129,50 @@ class Portfolio:
             p.apply_transaction(transaction)
         return p
 
-    def get_positions(self, date:datetime=None) -> Positions:
+    def get_positions(self, posdate:datetime=None) -> Positions:
         '''
         Returns the list of positions of the portfolio in a dictionary keyed by ticker.
+        If the date is not given, will return the portfolio positions at inception date (origin)
         '''
-        if(date == None):
+        if(posdate == None):
             return self.positions[self.origin]['positions']
         # Check if the positions have to be evaluated
-        if(self.constituents_eval_dates.index[0] > date):
-            raise PMException(f"Cannot return the positions of portfolio {self.get_name()} at {date} because this portfolio start date is {self.get_start_date()}.")
-        if(self.constituents_eval_dates.at[date] == False):
+        if(self.constituents_eval_dates.index[0] > posdate):
+            raise PMException(f"Cannot return the positions of portfolio {self.get_name()} at {posdate} because this portfolio start date is {self.get_start_date()}.")
+        if(self.constituents_eval_dates.at[posdate] == False):
             #Evaluate constituents
             self._evaluate_constituents()
         #Find the latest evaluation date
-        eval_date=self._find_latest_evaluation(date)
+        eval_date=self._find_latest_evaluation(posdate)
         return self.positions[eval_date]['positions']
 
-    def _set_positions(self, positions:Positions, date:datetime) -> Positions:
-        self.positions[date]['positions'] = positions
+    def _set_positions(self, positions:Positions, posdate:datetime) -> Positions:
+        self.positions[posdate]['positions'] = positions
     
-    def add(self, currency:str, quantity:number, date:datetime = None, tags:set=None):
+    def add(self, currency:str, quantity:number, date:datetime = None, tags:set=None, eval:bool=False):
         '''
         Adds a quantify of cash in the portfolio
         currency: The currency of the cash
         quantity: The amount of cash
         date: The date of the transaction. Pass None and it will default to the start date of the portfolio for convenience
         tags: tags associated with the cash position.
+        if eval is true will return the evaluated price in the transaction's currency, otherwise returns 0
         '''
         check_currency(currency)
+        to_return =0
         if date == None: date=self.get_start_date()
-        self._buy(PositionIdentifier(CASH, Currency(currency), tags), quantity, date)
+        to_return = self._buy(PositionIdentifier(CASH, Currency(currency), tags), quantity, date, eval)
         logger.debug(f"Bought {quantity} {currency} at {date}")
+        return to_return
 
-    def buy(self, ticker_code:str, quantity:number, date:datetime=None, tags:set=None ):
+    def buy(self, ticker_code:str, quantity:number, date:datetime=None, tags:set=None, eval:bool=False)->number:
         '''
         Adds an instrument in the portfolio.
         Ticker code can be relative (without an exchange, which will then default to the US virtual exchange) or absolute (fully qualified)
         quantify if the amount of equity to buy, typically a number of shares
         date is the transaction date. Pass None to set it at the start of the porfolio
         tags are the tags associated with the transaction. Used for filtering or other portfolio manipulation.
+        if eval is true will return the evaluated price in the transaction's currency, otherwise returns 0
         '''  
         if(ticker_code.find(".") != -1):
             (ticker,exchange) = ticker_code.split('.')
@@ -175,10 +181,12 @@ class Portfolio:
             full_ticker = ticker_code+"." + DEFAULT_MARKET_CODE
         # Get meta data for the ticker
         try:
+            to_return = 0
             ticker = get_ticker(full_ticker)
             if(date == None): date = self.get_start_date()
-            self._buy(PositionIdentifier(EQUITY, ticker, tags), quantity, date)
+            to_return = self._buy(PositionIdentifier(EQUITY, ticker, tags), quantity, date, eval)
             logger.debug(f"Bought {quantity} {ticker_code} at {date}")
+            return to_return
         except Exception as e:
             raise PMException(f"Cannot find or process the instrument identified by ticker code {ticker_code} - {str(e)}")
         
@@ -193,35 +201,57 @@ class Portfolio:
         toreturn._set_positions(positions, date)
         return toreturn
 
-    def _process_transaction(self, transaction:Transaction):
+    def _process_transaction(self, transaction:Transaction, eval:bool=False)->number:
+        '''
+        Process a transaction (recomputes the composition of the portfolio) and if eval is true evaluate the value of the transaction
+        Returns 0 if eval is false
+        '''
+        to_return =0
         # get the portfolio positions for the given date
         date:datetime = transaction.get_date()
         positions = self.get_positions(date)
         # Copy the positions and save the new portfolio at date
         new_positions = positions.copy()
         new_positions.apply_transaction(transaction)
+        if eval : to_return = self._value_position(transaction.get_position_identifier(), transaction.get_quantity(), date)
         # Record the transaction
         txs:list = self._get_transactions(date)
         txs.append(transaction)
         self.positions[date]= {"positions":new_positions, "transactions":txs}
         # Invalidate the portfolio constituents from date
         self._invalidate_constituents_evaluation(date+timedelta(days=1))
+        return to_return
 
-    def _buy(self, ticker:PositionIdentifier, quantity:number, date:datetime):
+    def _value_position(self, pi:PositionIdentifier, quantity:number, date:datetime)->number:
+        '''
+        Value the position
+        '''
+        if pi.type == CASH:
+            return CashValuator.value_position(pi, quantity, date, pi.id)
+        if pi.type == EQUITY:
+            return EquityValuator.value_position(pi, quantity, date, DEFAULT_VALUATION_DATAPOINT, pi.id.currency)
+        raise NotImplementedError(f"position type {pi.type} not implemented for position valuation.")
+
+
+    def _buy(self, ticker:PositionIdentifier, quantity:number, date:datetime, eval:bool)->number:
         
         # Tagged positions are not aggregared with non-tagged positions. They are aggregated together 
         # if they have the same tickers and tags
         transaction = Transaction(BUY, ticker, quantity, date)
-        self._process_transaction(transaction)
+        return self._process_transaction(transaction, eval)
 
     def _get_transactions(self, date:datetime):
         if date in self.positions:
             return self.positions[date]['transactions']
         return []
 
-    def sell(self, ticker_code:str, quantity:number, date:datetime=None):
+    def sell(self, ticker_code:str, quantity:number, date:datetime=None, eval:bool=False):
         '''
         Sells an equity from the portfolio
+        Ticker code can be relative (without an exchange, which will then default to the US virtual exchange) or absolute (fully qualified)
+        quantify if the amount of equity to buy, typically a number of shares
+        date is the transaction date. Pass None to set it at the start of the porfolio
+        if eval is true will return the evaluated price in the transaction's currency, otherwise returns 0
         '''
         if(date == None): date = self.get_start_date()
         if(ticker_code.find(".") != -1):
@@ -231,25 +261,29 @@ class Portfolio:
             full_ticker = ticker_code+"." + DEFAULT_MARKET_CODE
         # Get meta data for the ticker
         try:
+            to_return = 0
             ticker = get_ticker(full_ticker)
-            self._sell(PositionIdentifier(EQUITY, ticker), quantity, date)
+            to_return = self._sell(PositionIdentifier(EQUITY, ticker), quantity, date, eval)
             logger.debug(f"Sold {quantity} {full_ticker} at {date}")
+            return to_return
         except Exception:
             raise PMException("Cannot find or process the instrument identified by ticker code " + ticker_code)
 
 
-    def withdraw(self, currency:str, quantity:number, date:datetime=None):
+    def withdraw(self, currency:str, quantity:number, date:datetime=None, eval:bool=False):
         '''
         Withdraws some cash from the portfolio
         '''
         check_currency(currency)
+        to_return =0
         if date == None: date = self.get_start_date()
-        self._sell(PositionIdentifier(CASH, Currency(currency)), quantity, date)
+        to_return = self._sell(PositionIdentifier(CASH, Currency(currency)), quantity, date, eval)
         logger.debug(f"Sold {quantity} {currency} at {date}")
+        return to_return
      
-    def _sell(self, ticker:PositionIdentifier, quantity:number, date:datetime):
+    def _sell(self, ticker:PositionIdentifier, quantity:number, date:datetime, eval:bool=False):
         transaction = Transaction(SELL, ticker, quantity,date)
-        self._process_transaction(transaction)
+        return self._process_transaction(transaction, eval)
 
     def get_position_amount(self, pi:PositionIdentifier, date:datetime=None)->number:
         '''
@@ -284,7 +318,7 @@ class Portfolio:
         '''
         Returns a readable string of the portfolio
         '''
-        return "Portfolio " + self.name +" \n" + self.positions.pretty_print()
+        return "Portfolio " + self.name +" \n" + self.get_positions().pretty_print()
 
     def size(self):
         '''
@@ -320,7 +354,7 @@ class PortfolioGroup:
             to_return.append({"portfolio_name":name, "portfolio":porfolio.state()})
         return to_return
 
-    def get(self, name:str)->list:
+    def get(self, name:str)->Portfolio:
         return self.__portfolios(name)
 
     def __iter__(self):
@@ -333,20 +367,16 @@ class PortfolioGroup:
         Returns a flattened list of portfolios
         '''
         toreturn = list()
-        for portfolio_set_name in self.__portfolios:
-            portfolio = self.__portfolios[portfolio_set_name]
+        for portfolio_name in self.__portfolios.keys():
+            portfolio = self.__portfolios[portfolio_name]
             toreturn.append(portfolio)
         return toreturn
 
     def __repr__(self) -> str:
-        toreturn = "Portfolio Group " + self.__name +" containing " + str(self.__len__())+" set(s) of portfolios: \n"
-        for (i, portfolio_set_name) in enumerate(self.__portfolios):
-            toreturn +="Set "+ portfolio_set_name+":\n"
-            portfolio_list = self.__portfolios[portfolio_set_name]
-            for (j, p) in enumerate(portfolio_list):
-                toreturn += str(p)
-                if((i != len(self.__portfolios)-1) or (j != len(portfolio_list) -1)):
-                    toreturn += '\n'
+        toreturn = "Portfolio Group " + self.__name +" containing " + str(self.__len__())+" portfolios: \n"
+        for portfolio_name in self.__portfolios.keys():
+            p:Portfolio = self.__portfolios[portfolio_name]
+            toreturn += p.pretty_print()
         return toreturn
     
     def valuator(self):
@@ -361,7 +391,8 @@ class InstrumentValuator:
     def get_valuation(self, valdate:datetime, target_currency:Currency)->number:
         raise NotImplementedError("get_valuation should have an implementation in derived classes")
 
-    def convert_to_target_currency(self, value:number, valdate:date, source_currency:str=DEFAULT_CURRENCY, target_currency:str=DEFAULT_CURRENCY)->number:
+    @staticmethod
+    def convert_to_target_currency(value:number, valdate:date, source_currency:str=DEFAULT_CURRENCY, target_currency:str=DEFAULT_CURRENCY)->number:
         return fx_convert(value, source_currency, target_currency, valdate)
 
     @staticmethod
@@ -375,7 +406,7 @@ class InstrumentValuator:
             return CashValuator(portfolio, pi)
         if(pi.type == EQUITY):
             return EquityValuator(portfolio, pi, **valuator_args)
-        raise PMException("Could not create valuator for " + pi)
+        raise PMException("Could not create valuator for " + pi.pretty_print())
     
 
 class EquityValuator(InstrumentValuator):
@@ -384,12 +415,17 @@ class EquityValuator(InstrumentValuator):
         self.valuation_data_point = dpname
 
     def get_valuation(self, valdate:datetime, target_currency:Currency)->number:
-        try:
-            closing_price = get_timeseries(full_ticker=self.pi.id.get_full_ticker(), datapoint_name=self.valuation_data_point).get(valdate.date())
-        except PMException as e:
-            raise PMException(f"Cannot get the valuation of {self.pi.id.get_full_ticker()} at date {valdate} for data point {self.valuation_data_point} in currency {target_currency.get_identifier()} due to the underlying error: {str(e)}")
-        return self.convert_to_target_currency(closing_price*self.portfolio.get_position_amount(self.pi, valdate), valdate.date(), self.pi.id.currency.get_identifier(), target_currency.get_identifier())
+        return self.value_position(self.pi, self.portfolio.get_position_amount(self.pi, valdate), valdate, self.valuation_data_point, target_currency)
         
+    @staticmethod
+    def value_position(pi:PositionIdentifier, position_amount:number, valdate:datetime, valuation_data_point:str, target_currency:Currency)->number:
+        try:
+            valdate = todatetime(valdate)
+            closing_price = get_timeseries(full_ticker=pi.id.get_full_ticker(), datapoint_name=valuation_data_point).get(valdate.date())
+            return InstrumentValuator.convert_to_target_currency(closing_price*position_amount, valdate.date(), pi.id.currency.get_identifier(), target_currency.get_identifier())
+        except PMException as e:
+            raise PMException(f"Cannot get the valuation of {id.get_full_ticker()} at date {valdate} for data point {valuation_data_point} in currency {target_currency.get_identifier()} due to the underlying error: {str(e)}")
+
 
 
 class CashValuator(InstrumentValuator):
@@ -397,7 +433,12 @@ class CashValuator(InstrumentValuator):
         InstrumentValuator.__init__(self, portfolio,pi)
 
     def get_valuation(self, valdate:datetime, target_currency:Currency)->number:
-        return self.convert_to_target_currency(self.portfolio.get_position_amount(self.pi, valdate), valdate.date(), self.pi.id.get_identifier(), target_currency.get_identifier())
+        return self.value_position(self.pi, self.portfolio.get_position_amount(self.pi, valdate), valdate, target_currency)
+
+    @staticmethod
+    def value_position(pi:PositionIdentifier, position_amount:number, valdate:datetime, target_currency:Currency)->number:
+        valdate = todatetime(valdate)
+        return InstrumentValuator.convert_to_target_currency(position_amount, valdate.date(), pi.id.get_identifier(), target_currency.get_identifier())
 
 class IPorfolioValuator:
   
@@ -414,6 +455,8 @@ class PortfolioGroupValuator(IPorfolioValuator):
         self.portfolio_group = portfolio_group
 
     def get_valuations(self, start_date:datetime=None, end_date:datetime=None, dp_name=DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->TimeSeries:
+        start_date=todatetime(start_date)
+        end_date=todatetime(end_date)
         #For each portfolio in the group, value it
         ts:TimeSeries|None = None
         for (i,portfolio) in enumerate(self.portfolio_group):
@@ -457,7 +500,8 @@ class PortfolioValuator(IPorfolioValuator):
             start_date = self.get_start_date(dp_name=dp_name)
         if(end_date == None):
             end_date = self.get_end_date(dp_name=dp_name)
-        
+        start_date=todatetime(start_date)
+        end_date = todatetime(end_date)
         period:pd.DatetimeIndex = pd.date_range(start_date, end_date, freq='D')
         toreturn:ndarray = numpy.zeros((end_date - start_date).days+1)
         for i, d in enumerate(period):
@@ -465,6 +509,7 @@ class PortfolioValuator(IPorfolioValuator):
         return TimeSeries(toreturn, start_date=start_date.date(), end_date=end_date.date())
 
     def get_valuation(self, valdate:datetime=None, dpname:str = DEFAULT_VALUATION_DATAPOINT, ccy:str=DEFAULT_CURRENCY)->number:
+        valdate=todatetime(valdate)
         portfolio_valuation:number = 0.0
         positions = self.portfolio.get_positions(valdate)
         if(logger.isEnabledFor(DEBUG)): logger.debug(f"Valuing portfolio {self.portfolio.get_name()} containing {len(positions)} positions at {valdate}")
@@ -529,6 +574,7 @@ class IndexValuator(PortfolioValuator):
             if(i==0): continue #Skip the first date since it is valued as base_value
             toreturn[i]=toreturn[i-1] * self.get_valuation(todatetime(self.base_date+timedelta(days=i)), dpname=dp_name, ccy=ccy) / self.get_valuation(todatetime(self.base_date+timedelta(days=i-1)), dpname=dp_name, ccy=ccy)
         return TimeSeries(toreturn, start_date=self.base_date, end_date=end_date)
+
 
 
 
@@ -725,6 +771,13 @@ class UnitTestValuations(unittest.TestCase):
         p2.buy('MSFT', 20)
         pg.add(p2)
         self.assertAlmostEqual(pg.valuator().get_valuation(datetime(2022,9,1)), 565036, delta=1)
+
+    def test_portfolio_transaction_evaluation(self):
+        p:Portfolio = Portfolio()
+        v1 = p.add('USD', 67000, datetime(2020,1,10), eval=True)
+        v2 = p.buy('MSFT', 10, datetime(2020,1,15), eval=True)
+        self.assertEqual(v1, 67000)
+        self.assertAlmostEqual(v2, 1586, delta=1)
 
  #   @time_func
     def test_get_end_date(self):
@@ -936,6 +989,20 @@ class UnitTestValuations(unittest.TestCase):
         msci_stocks = v.get_valuation(datetime(2022,11,27))
         self.assertEqual(len(my_portfolio.get_positions()), 5)
         self.assertAlmostEqual(msci_stocks, 5845398.97, delta=0.01)
+
+    def test_portfolio_ts(self):
+        p:Portfolio = Portfolio()
+        p.buy('MSFT', 10)
+        p.buy('CSCO', 20)
+        # The index valuation will calculate the value of the index from its base date and base value
+        v:IndexValuator = IndexValuator(portfolio=p, base_date=datetime(2010,1,1), base_value=100)
+        index_valuations:TimeSeries = v.get_index_valuations()
+
+        # Another way of computing the indexed time series is to rebase the time series itself:
+        v:PortfolioValuator = p.valuator()
+        adjclose_ts:TimeSeries = v.get_valuations(start_date=datetime(2010,1,1))
+        index_valuations2 = adjclose_ts.rebase()
+        self.assertEqual(index_valuations2, index_valuations)
 
 if __name__ == '__main__':
     unittest.main()

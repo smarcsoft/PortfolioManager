@@ -12,7 +12,7 @@ from PositionIdentifier import Currency, PositionIdentifier, CASH, EQUITY, Ticke
 from Positions import Positions
 from TimeSeries import TimeSeries
 from pmdata import fx_convert
-from pmdata import get_timeseries, get_ticker
+from pmdata import get_timeseries, get_ticker, get_fx_timeseries
 from config import init_logging
 from copy import deepcopy
 
@@ -136,6 +136,7 @@ class Portfolio:
         '''
         if(posdate == None):
             return self.positions[self.origin]['positions']
+        else: posdate = todatetime(posdate)
         # Check if the positions have to be evaluated
         if(self.constituents_eval_dates.index[0] > posdate):
             raise PMException(f"Cannot return the positions of portfolio {self.get_name()} at {posdate} because this portfolio start date is {self.get_start_date()}.")
@@ -146,9 +147,7 @@ class Portfolio:
         eval_date=self._find_latest_evaluation(posdate)
         return self.positions[eval_date]['positions']
 
-    def _set_positions(self, positions:Positions, posdate:datetime) -> Positions:
-        self.positions[posdate]['positions'] = positions
-    
+
     def add(self, currency:str, quantity:number, date:datetime = None, tags:set=None, eval:bool=False):
         '''
         Adds a quantify of cash in the portfolio
@@ -161,6 +160,7 @@ class Portfolio:
         check_currency(currency)
         to_return =0
         if date == None: date=self.get_start_date()
+        else: date = todatetime(date)
         to_return = self._buy(PositionIdentifier(CASH, Currency(currency), tags), quantity, date, eval)
         logger.debug(f"Bought {quantity} {currency} at {date}")
         return to_return
@@ -184,6 +184,7 @@ class Portfolio:
             to_return = 0
             ticker = get_ticker(full_ticker)
             if(date == None): date = self.get_start_date()
+            else: date = todatetime(date)
             to_return = self._buy(PositionIdentifier(EQUITY, ticker, tags), quantity, date, eval)
             logger.debug(f"Bought {quantity} {ticker_code} at {date}")
             return to_return
@@ -196,10 +197,16 @@ class Portfolio:
         The returning portfolio will contained the corresponding tagged positions.
         Tags are evaluated using OR statement: A position is returned if it contains one of the given tags.
         '''
-        positions:Positions = self.positions[date]['positions'].get_tagged_positions(tags)
-        toreturn= Portfolio(name)
-        toreturn._set_positions(positions, date)
+        if(date < self.get_start_date()): date = self.get_start_date()
+        positions:Positions = self.get_positions(date).get_tagged_positions(tags)
+        toreturn= Portfolio(name, date)
+        # Re-create the portfolio with buy transactions
+        for position in positions:
+            toreturn._add_position(position, self.get_position_amount(position, date), date)
         return toreturn
+
+    def _add_position(self, position:PositionIdentifier, amount:number, date:datetime):
+        self._buy(position, amount ,date, False)
 
     def _process_transaction(self, transaction:Transaction, eval:bool=False)->number:
         '''
@@ -254,6 +261,7 @@ class Portfolio:
         if eval is true will return the evaluated price in the transaction's currency, otherwise returns 0
         '''
         if(date == None): date = self.get_start_date()
+        else: date = todatetime(date)
         if(ticker_code.find(".") != -1):
             (ticker,exchange) = ticker_code.split('.')
             full_ticker = ticker+"."+exchange
@@ -277,6 +285,7 @@ class Portfolio:
         check_currency(currency)
         to_return =0
         if date == None: date = self.get_start_date()
+        else: date = todatetime(date)
         to_return = self._sell(PositionIdentifier(CASH, Currency(currency)), quantity, date, eval)
         logger.debug(f"Sold {quantity} {currency} at {date}")
         return to_return
@@ -290,6 +299,7 @@ class Portfolio:
         Returns the number of shares of an equity positions, or the quantify of cash of a cash position.
         '''
         if date == None: date = self.get_start_date()
+        else: date = todatetime(date)
         positions = self.get_positions(date)
         return positions[pi]
 
@@ -408,7 +418,6 @@ class InstrumentValuator:
             return EquityValuator(portfolio, pi, **valuator_args)
         raise PMException("Could not create valuator for " + pi.pretty_print())
     
-
 class EquityValuator(InstrumentValuator):
     def __init__(self, portfolio:Portfolio, pi:PositionIdentifier, dpname=DEFAULT_VALUATION_DATAPOINT) -> None:
         InstrumentValuator.__init__(self, portfolio, pi)
@@ -424,9 +433,7 @@ class EquityValuator(InstrumentValuator):
             closing_price = get_timeseries(full_ticker=pi.id.get_full_ticker(), datapoint_name=valuation_data_point).get(valdate.date())
             return InstrumentValuator.convert_to_target_currency(closing_price*position_amount, valdate.date(), pi.id.currency.get_identifier(), target_currency.get_identifier())
         except PMException as e:
-            raise PMException(f"Cannot get the valuation of {id.get_full_ticker()} at date {valdate} for data point {valuation_data_point} in currency {target_currency.get_identifier()} due to the underlying error: {str(e)}")
-
-
+            raise PMException(f"Cannot get the valuation of {pi.id.get_full_ticker()} at date {valdate} for data point {valuation_data_point} in currency {target_currency.get_identifier()} due to the underlying error: {str(e)}")
 
 class CashValuator(InstrumentValuator):
     def __init__(self, portfolio:Portfolio, pi:PositionIdentifier) -> None:
@@ -514,9 +521,12 @@ class PortfolioValuator(IPorfolioValuator):
         positions = self.portfolio.get_positions(valdate)
         if(logger.isEnabledFor(DEBUG)): logger.debug(f"Valuing portfolio {self.portfolio.get_name()} containing {len(positions)} positions at {valdate}")
         for position_identifier in positions:
-            instrument_value:number = InstrumentValuator.valuator(self.portfolio, position_identifier, dpname=dpname).get_valuation(valdate, Currency(ccy))
-            portfolio_valuation = portfolio_valuation + instrument_value
-            if(logger.isEnabledFor(DEBUG)): logger.debug(f"{position_identifier.pretty_print()} valued at {instrument_value} {ccy}")
+            try:
+                instrument_value:number = InstrumentValuator.valuator(self.portfolio, position_identifier, dpname=dpname).get_valuation(valdate, Currency(ccy))
+                portfolio_valuation = portfolio_valuation + instrument_value
+                if(logger.isEnabledFor(DEBUG)): logger.debug(f"{position_identifier.pretty_print()} valued at {instrument_value} {ccy}")
+            except Exception as e:
+                raise PMException(f"Could not value position {position_identifier.pretty_print()} in portfolio {self.portfolio.get_name()} at {valdate} in {ccy} due to the underlying error: {str(e)}")
         if(logger.isEnabledFor(DEBUG)): logger.debug(f"Portfolio {self.portfolio.get_name()} evaluated at {portfolio_valuation} {ccy} at {valdate}")
         return portfolio_valuation
 
@@ -529,9 +539,13 @@ class PortfolioValuator(IPorfolioValuator):
         start_date:datetime|None = None
         portfolio_start_date = self.portfolio.get_start_date()
         for position_identifier in self.portfolio.get_positions(portfolio_start_date):
-            # Ignore cash positions to compute earliest start date of the portfolio
-            if(position_identifier.type == CASH): continue
-            sd = get_timeseries(full_ticker=position_identifier.id.get_full_ticker(), datapoint_name=dp_name).get_start_date()
+            if(position_identifier.type == CASH): 
+                # Skip UDS
+                if position_identifier.id.get_identifier() == "USD": continue
+                ts = get_fx_timeseries(position_identifier.id.get_identifier())
+            if(position_identifier.type == EQUITY):
+                ts = get_timeseries(full_ticker=position_identifier.id.get_full_ticker(), datapoint_name=dp_name)
+            sd = ts.get_start_date()
             sdt = datetime(sd.year, sd.month, sd.day)
             if((start_date == None) or (start_date < sdt)):
                 start_date = sdt
@@ -548,14 +562,18 @@ class PortfolioValuator(IPorfolioValuator):
         d:date = date.today()
         for position_identifier in self.portfolio.get_positions(datetime(d.year, d.month, d.day)):
             # Ignore cash positions to compute earliest start date of the portfolio
-            if(position_identifier.type == CASH): continue
-            ed = get_timeseries(full_ticker=position_identifier.id.get_full_ticker(), datapoint_name=dp_name).get_end_date()
-            if((end_date == None) or (end_date < ed)):
+            if(position_identifier.type == CASH): 
+                # Skip UDS
+                if position_identifier.id.get_identifier() == "USD": continue
+                ts = get_fx_timeseries(position_identifier.id.get_identifier())
+            if(position_identifier.type == EQUITY):
+                ts = get_timeseries(full_ticker=position_identifier.id.get_full_ticker(), datapoint_name=dp_name)
+            ed = ts.get_end_date()
+            if((end_date == None) or (end_date > ed)):
                 end_date = ed
             if(end_date == None):
                 raise PMException("Could not determine the latest end date of the portfolio. Please specify the end date explicitly.")
         return datetime(end_date.year, end_date.month, end_date.day)
-
 
 class IndexValuator(PortfolioValuator):
     def __init__(self, portfolio:Portfolio, base_date:date, base_value:number) -> None:
@@ -574,11 +592,6 @@ class IndexValuator(PortfolioValuator):
             if(i==0): continue #Skip the first date since it is valued as base_value
             toreturn[i]=toreturn[i-1] * self.get_valuation(todatetime(self.base_date+timedelta(days=i)), dpname=dp_name, ccy=ccy) / self.get_valuation(todatetime(self.base_date+timedelta(days=i-1)), dpname=dp_name, ccy=ccy)
         return TimeSeries(toreturn, start_date=self.base_date, end_date=end_date)
-
-
-
-
-
 
 class UnitTestPortfolio(unittest.TestCase):
     def test_buy(self):
@@ -710,9 +723,68 @@ class UnitTestPortfolio(unittest.TestCase):
         self.assertEqual(p.get_cash('USD', tags={'BONUS', "YEAR2"}), 74000)
         #Check selling/withdrawing
 
-
-
 class UnitTestValuations(unittest.TestCase):
+
+    def create_sample_portfolio(self, name:str, portfolio_start_date:datetime = None, transaction_date:datetime= None):
+        if(portfolio_start_date == None): portfolio_start_date = DEFAULT_ORIGIN
+        my_portfolio:Portfolio = Portfolio(name, portfolio_start_date)
+        my_portfolio.buy('MSCI', 2578, transaction_date, tags={'PERFORMANCE SHARES'}) #Performance shares
+        my_portfolio.buy('MSCI', 3916, transaction_date, tags={'RESTRICTED SHARES'}) #Restricted shares
+        my_portfolio.buy('MSCI', 3916, transaction_date, tags={'STOCK OPTIONS'}) #Stock options
+        my_portfolio.buy('MSCI', 807, transaction_date, tags={'BROADRIDGE SHARES'})  #Bradridge shares
+        my_portfolio.buy('MSCI', 3000, transaction_date, tags={'MORGAN STANLEY SHARES'})  #Bradridge shares
+        my_portfolio.add('CHF', 14845, transaction_date)  # BCGE
+        my_portfolio.add('EUR', 5604, transaction_date)   # N26
+        my_portfolio.add('EUR', 1169,transaction_date)   # Boursorama
+        my_portfolio.add('CHF', 401598, transaction_date) # UBS
+        my_portfolio.add('CHF', 37640, transaction_date)  # Liechsteinstein
+        my_portfolio.add('ETH', 32.9123, transaction_date, tags={'CRYPTOS'})
+        my_portfolio.add('BTC', 2.2347, transaction_date, tags={'CRYPTOS'})
+        my_portfolio.add('DOT', 1214.4988, transaction_date,tags={'CRYPTOS'})
+        my_portfolio.add('EUR', 1462.32, transaction_date,tags={'SWISSQUOTE'})
+        my_portfolio.add('USD', 165928.14, transaction_date,tags={'SWISSQUOTE'})
+        my_portfolio.buy('IPRP.SW', 235, transaction_date,tags={'SWISSQUOTE'})
+        my_portfolio.buy('VUSA.SW', 800, transaction_date,tags={'SWISSQUOTE'})
+        my_portfolio.buy('WSRUSA.SW', 489, transaction_date,tags={'SWISSQUOTE'})
+        my_portfolio.buy('EFA', 428, transaction_date,tags={'SWISSQUOTE'})
+        my_portfolio.buy('LCTU', 428, datetime(2021,4,8),tags={'SWISSQUOTE'})
+        my_portfolio.buy('STLA.PA', 2923, datetime(2021,1,18),tags={'SWISSQUOTE'})
+        return my_portfolio
+
+    def test_mac_portfolio(self):
+        my_portfolio:Portfolio = Portfolio()
+        my_portfolio.buy('MSCI', 2578, tags={'PERFORMANCE SHARES'}) #Performance shares
+        my_portfolio.buy('MSCI', 3916, tags={'RESTRICTED SHARES'}) #Restricted shares
+        my_portfolio.buy('MSCI', 3916, tags={'STOCK OPTIONS'}) #Stock options
+        my_portfolio.buy('MSCI', 807, tags={'BROADRIDGE SHARES'})  #Bradridge shares
+        my_portfolio.buy('MSCI', 3000, tags={'MORGAN STANLEY SHARES'})  #Bradridge shares
+        my_portfolio.add('CHF', 14845)  # BCGE
+        my_portfolio.add('EUR', 5604)   # N26
+        my_portfolio.add('EUR', 1169)   # Boursorama
+        my_portfolio.add('CHF', 401598) # UBS
+        my_portfolio.add('CHF', 37640)  # Liechsteinstein
+        with_cash = PortfolioValuator(portfolio=my_portfolio).get_valuation(datetime(2022,9,1))
+        my_portfolio.add('ETH', 32.9123, tags={'CRYPTOS'})
+        my_portfolio.add('BTC', 2.2347, tags={'CRYPTOS'})
+        my_portfolio.add('DOT', 1214.4988, tags={'CRYPTOS'})
+        with_cryptos = PortfolioValuator(portfolio=my_portfolio).get_valuation(datetime(2022,9,1))
+        self.assertAlmostEqual(with_cryptos - with_cash, 105911, delta=1)
+
+        my_portfolio.add('EUR', 1462.32, tags={'SWISSQUOTE'})
+        my_portfolio.add('USD', 165928.14, tags={'SWISSQUOTE'})
+        my_portfolio.buy('IPRP.SW', 235, tags={'SWISSQUOTE'})
+        my_portfolio.buy('VUSA.SW', 800, tags={'SWISSQUOTE'})
+        my_portfolio.buy('WSRUSA.SW', 489, tags={'SWISSQUOTE'})
+        my_portfolio.buy('EFA', 428, tags={'SWISSQUOTE'})
+        my_portfolio.buy('LCTU', 428, tags={'SWISSQUOTE'})
+        my_portfolio.buy('STLA.PA', 2923, tags={'SWISSQUOTE'})
+
+        with_swissquote = PortfolioValuator(portfolio=my_portfolio).get_valuation(datetime(2022,9,1))
+        swissquote = my_portfolio.create("swissquote", tags={'SWISSQUOTE'})
+        self.assertEqual(len(swissquote.get_positions()), 8)
+        sqvalue = PortfolioValuator(portfolio=swissquote).get_valuation(datetime(2022,9,1))
+        self.assertAlmostEqual(with_swissquote - with_cryptos, sqvalue, delta=1)
+
 #    @time_func
     def test_get_valuations(self):
         p:Portfolio = Portfolio()
@@ -827,68 +899,52 @@ class UnitTestValuations(unittest.TestCase):
         value_chf:number = v.get_valuation(valdate=datetime(2022,9,1), ccy="CHF")
         self.assertAlmostEqual(value_chf, 4461, delta=1)
 
-    def test_mac_portfolio(self):
-        my_portfolio:Portfolio = Portfolio()
+
+    def test_tag_selection(self):
+        my_portfolio:Portfolio = Portfolio("DEFAULT", datetime(2021,1,18))
         my_portfolio.buy('MSCI', 2578, tags={'PERFORMANCE SHARES'}) #Performance shares
         my_portfolio.buy('MSCI', 3916, tags={'RESTRICTED SHARES'}) #Restricted shares
-        my_portfolio.buy('MSCI', 3916, tags={'STOCK OPTIONS'}) #Stock options
+        my_portfolio.buy('MSCI', 1110, tags={'STOCK OPTIONS'}) #Stock options
         my_portfolio.buy('MSCI', 807, tags={'BROADRIDGE SHARES'})  #Bradridge shares
         my_portfolio.buy('MSCI', 3000, tags={'MORGAN STANLEY SHARES'})  #Bradridge shares
+        v:PortfolioValuator = PortfolioValuator(portfolio=my_portfolio)
+        # Value the MSCI stocks
+        v.get_valuation(date.fromisoformat("2022-11-27"))
+        #Add cash
         my_portfolio.add('CHF', 14845)  # BCGE
-        my_portfolio.add('EUR', 5604)   # N26
+        my_portfolio.add('EUR', 2000)   # N26
         my_portfolio.add('EUR', 1169)   # Boursorama
-        my_portfolio.add('CHF', 401598) # UBS
-        my_portfolio.add('CHF', 37640)  # Liechsteinstein
-        with_cash = PortfolioValuator(portfolio=my_portfolio).get_valuation(datetime(2022,9,1))
+        my_portfolio.add('CHF', 387798) # UBS
+        my_portfolio.add('CHF', 42233)  # Liechsteinstein
+        PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-11-27"))
+        # Add crypto currencies
         my_portfolio.add('ETH', 32.9123, tags={'CRYPTOS'})
         my_portfolio.add('BTC', 2.2347, tags={'CRYPTOS'})
         my_portfolio.add('DOT', 1214.4988, tags={'CRYPTOS'})
-        with_cryptos = PortfolioValuator(portfolio=my_portfolio).get_valuation(datetime(2022,9,1))
-        self.assertAlmostEqual(with_cryptos - with_cash, 105911, delta=1)
-
+        with_cryptos = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-11-27"))
+        self.assertGreater(with_cryptos, 0)
+        # Explicitly value the crypto positions
+        crypto_portfolio = my_portfolio.create(name="CRYPTOS", tags={'CRYPTOS'})
+        cryptos_only = PortfolioValuator(portfolio=crypto_portfolio).get_valuation(date.fromisoformat("2022-11-27"))
+        self.assertGreater(cryptos_only, 0)
+        my_portfolio.add('CHF', 50000) # DEBTORS
+        PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-11-27"))
         my_portfolio.add('EUR', 1462.32, tags={'SWISSQUOTE'})
         my_portfolio.add('USD', 165928.14, tags={'SWISSQUOTE'})
         my_portfolio.buy('IPRP.SW', 235, tags={'SWISSQUOTE'})
         my_portfolio.buy('VUSA.SW', 800, tags={'SWISSQUOTE'})
         my_portfolio.buy('WSRUSA.SW', 489, tags={'SWISSQUOTE'})
         my_portfolio.buy('EFA', 428, tags={'SWISSQUOTE'})
-        my_portfolio.buy('LCTU', 428, tags={'SWISSQUOTE'})
-        my_portfolio.buy('STLA.PA', 2923, tags={'SWISSQUOTE'})
-
-        with_swissquote = PortfolioValuator(portfolio=my_portfolio).get_valuation(datetime(2022,9,1))
-        swissquote = my_portfolio.create("swissquote", tags={'SWISSQUOTE'})
-        self.assertEqual(len(swissquote.get_positions()), 8)
-        sqvalue = PortfolioValuator(portfolio=swissquote).get_valuation(datetime(2022,9,1))
-        self.assertAlmostEqual(with_swissquote - with_cryptos, sqvalue, delta=1)
-
-    def create_sample_portfolio(self, name:str, portfolio_start_date:datetime = None, transaction_date:datetime= None):
-        my_portfolio:Portfolio = Portfolio(name, portfolio_start_date)
-        my_portfolio.buy('MSCI', 2578, transaction_date, tags={'PERFORMANCE SHARES'}) #Performance shares
-        my_portfolio.buy('MSCI', 3916, transaction_date, tags={'RESTRICTED SHARES'}) #Restricted shares
-        my_portfolio.buy('MSCI', 3916, transaction_date, tags={'STOCK OPTIONS'}) #Stock options
-        my_portfolio.buy('MSCI', 807, transaction_date, tags={'BROADRIDGE SHARES'})  #Bradridge shares
-        my_portfolio.buy('MSCI', 3000, transaction_date, tags={'MORGAN STANLEY SHARES'})  #Bradridge shares
-        my_portfolio.add('CHF', 14845, transaction_date)  # BCGE
-        my_portfolio.add('EUR', 5604, transaction_date)   # N26
-        my_portfolio.add('EUR', 1169,transaction_date)   # Boursorama
-        my_portfolio.add('CHF', 401598, transaction_date) # UBS
-        my_portfolio.add('CHF', 37640, transaction_date)  # Liechsteinstein
-        my_portfolio.add('ETH', 32.9123, transaction_date, tags={'CRYPTOS'})
-        my_portfolio.add('BTC', 2.2347, transaction_date, tags={'CRYPTOS'})
-        my_portfolio.add('DOT', 1214.4988, transaction_date,tags={'CRYPTOS'})
-        my_portfolio.add('EUR', 1462.32, transaction_date,tags={'SWISSQUOTE'})
-        my_portfolio.add('USD', 165928.14, transaction_date,tags={'SWISSQUOTE'})
-        my_portfolio.buy('IPRP.SW', 235, transaction_date,tags={'SWISSQUOTE'})
-        my_portfolio.buy('VUSA.SW', 800, transaction_date,tags={'SWISSQUOTE'})
-        my_portfolio.buy('WSRUSA.SW', 489, transaction_date,tags={'SWISSQUOTE'})
-        my_portfolio.buy('EFA', 428, transaction_date,tags={'SWISSQUOTE'})
-        my_portfolio.buy('LCTU', 428, transaction_date,tags={'SWISSQUOTE'})
-        my_portfolio.buy('STLA.PA', 2923, transaction_date,tags={'SWISSQUOTE'})
+        my_portfolio.buy('LCTU', 428, datetime(2021,4,8), tags={'SWISSQUOTE'})
+        my_portfolio.buy('BCHN.LSE', 460, tags={'SWISSQUOTE'})
+        my_portfolio.buy('STLA.PA', 2923, datetime(2021,1,18), tags={'SWISSQUOTE'})
+        my_portfolio.buy('C40.PA', 320, tags={'SWISSQUOTE'})
+        with_swissquote = PortfolioValuator(portfolio=my_portfolio).get_valuation(date.fromisoformat("2022-11-27"))
         return my_portfolio
 
     def test_dated_buy(self):
-        valuation_date:datetime = datetime(2022,9,1)
-        p = self.create_sample_portfolio("Sample portfolio", valuation_date)
+        # valuation_date:datetime = datetime(2022,9,1)
+        p = self.create_sample_portfolio("Sample portfolio")
         value = PortfolioValuator(p).get_valuation(datetime(2022,9,1))
         # Add a dated transaction
         # Check that the valuation of the portfolio before the transaction is not affected
@@ -1003,6 +1059,10 @@ class UnitTestValuations(unittest.TestCase):
         adjclose_ts:TimeSeries = v.get_valuations(start_date=datetime(2010,1,1))
         index_valuations2 = adjclose_ts.rebase()
         self.assertEqual(index_valuations2, index_valuations)
+
+    def test_historical_portfolio_valuation(self):
+         PortfolioValuator(portfolio=self.create_sample_portfolio("MyPortfolio", datetime(2021,1,18))).get_valuations(datetime(2021,1,18), ccy="CHF")
+
 
 if __name__ == '__main__':
     unittest.main()

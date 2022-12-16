@@ -7,7 +7,7 @@ from exceptions import PMException
 
 DEFAULT_CONFIG_FILE="config/pm.conf"
 DEFAULT_LOGGING_CONFIG_FILE="config/logging.conf"
-__configfile = DEFAULT_CONFIG_FILE
+__configfile = None
 __logger = None
 __config = {}
 
@@ -20,6 +20,7 @@ def __read_configuration(configfile:str):
     '''
     Returns a dictionary containing the entry of the configuration file specified in arguments
     '''
+    # print(f"Reading configuration file {configfile}")
     config = {}
     if(__logger != None): __logger.info("Reading configuration file %s...", configfile)
     with open(configfile, "rt") as configfile:
@@ -29,6 +30,7 @@ def __read_configuration(configfile:str):
                 if(__logger != None): __logger.debug("Found %s -> %s", key, value.strip())
                 config[key.strip()] = value.strip()
     return config
+
 
 
 def process_arguments():
@@ -73,13 +75,16 @@ def init_config(logger:str=None, configfile:str=DEFAULT_CONFIG_FILE):
     Initializes the configuration subsystem so that get_config() works.
     '''
     global __configfile, __logger
+    # print(f"Calling init_config with {configfile}")
     # Check existence of the config file and throw an exception if it does not exist
     if not os.path.exists(configfile):
         # Revert back to the environment variable
+        # print("Using PM_CONFIG_LOCATION")
         location_from_env = os.environ.get("PM_CONFIG_LOCATION")
         if(location_from_env == None): raise PMException(f"Cannot initialize configuration subsystem: {configfile} does not exists")
         configfile = location_from_env
     __configfile = configfile
+    # print(f"Configuration file set to {__configfile}")
     if(logger == None): logger = "root"
     __logger = init_logging(logger)
 
@@ -104,7 +109,6 @@ def init_logging(loggername:str="root", configfile:str=DEFAULT_LOGGING_CONFIG_FI
         else:
             raise PMException(f"Cannot initialize logging subsystem with {log_conf_file_loc}: The file does not exist")
     else:
-        logging_from_env = os.path.join(logging_from_env, "logging.conf")
         if(os.path.exists(logging_from_env)):
             # print(f"Using logging configuration {logging_from_env}")
             logging.config.fileConfig(logging_from_env)
@@ -124,11 +128,14 @@ def get_config(key:str)->str:
 
     try:
         global __config, __configfile
+        # print(f"Calling get_config {key}")
 
         # Check if an environment variable is overriding the configuration file
         if(os.environ.get(key) != None):
             return os.environ.get(key)
 
+        if __configfile == None:
+            init_config()
         if __configfile in __config:
             # We are aware of the configuration file
             return __config[__configfile][key]
@@ -141,9 +148,11 @@ def get_config(key:str)->str:
 
 def get_install_location()->str:
     # Windows or Unix ?
+    # print("get_install_location called")
     toreturn=""
     if(platform.system() == "Windows"):
         toreturn = get_config("INSTALL_DIR_WIN")
+        # print(f"INSTALL_DIR_WIN returned {toreturn}")
     else:
         toreturn = get_config("INSTALL_DIR_UNIX")
     return toreturn

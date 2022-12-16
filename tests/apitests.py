@@ -54,6 +54,8 @@ def apitestsuite():
     suite.addTest(UnitTestValuations('test_valuation_before_transaction'))
     suite.addTest(UnitTestValuations('test_dated_buy_multiccy'))
     suite.addTest(UnitTestValuations('test_portfolio_transaction_evaluation'))
+    suite.addTest(UnitTestValuations('test_historical_portfolio_valuation'))
+    suite.addTest(UnitTestValuations('test_tag_selection'))
     suite.addTest(UnitTestTicker('test_ticker'))
     suite.addTest(UnitTestTicker('test_ticker_equal'))
     suite.addTest(UnitTestTicker('test_position_identifier_hash'))

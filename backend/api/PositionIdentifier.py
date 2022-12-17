@@ -49,6 +49,9 @@ class Currency(IInstrumentIdentifier):
     def is_cryto(self)->bool:
         return not self.is_fiat()
 
+    def get_currency(self):
+        return self
+
     def get_identifier(self)->str:
         return self._currency
 

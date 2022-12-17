@@ -6,6 +6,7 @@ from PositionIdentifier import UnitTestTicker
 from Positions import UnitTestPositions
 from Session import UnitTestSession
 from TimeSeries import UnitTestTimeSeries
+from analytics import UnitTestAnalytics
 from pmdata import UnitTestData
 
 
@@ -77,6 +78,7 @@ def apitestsuite():
     suite.addTest(UnitTestSession('test_f_portfolio_group_save_and_load'))
     suite.addTest(UnitTestSession('test_g_save_dated_portfolio'))
     suite.addTest(UnitTestSession('test_z_delete_user'))
+    suite.addTest(UnitTestAnalytics('test_prodit_and_losses'))
     return suite
 
 if __name__ == '__main__':

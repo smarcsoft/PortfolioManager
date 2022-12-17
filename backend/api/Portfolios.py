@@ -210,7 +210,7 @@ class Portfolio:
 
     def _process_transaction(self, transaction:Transaction, eval:bool=False)->number:
         '''
-        Process a transaction (recomputes the composition of the portfolio) and if eval is true evaluate the value of the transaction
+        Process a transaction (recomputes the composition of the portfolio) and if eval is true evaluate the value of the transaction in its local currency
         Returns 0 if eval is false
         '''
         to_return =0
@@ -220,7 +220,7 @@ class Portfolio:
         # Copy the positions and save the new portfolio at date
         new_positions = positions.copy()
         new_positions.apply_transaction(transaction)
-        if eval : to_return = self._value_position(transaction.get_position_identifier(), transaction.get_quantity(), date)
+        if eval : to_return = self.value_position(transaction.get_position_identifier(), date, transaction.get_quantity(), transaction.get_position_identifier().id.get_currency().get_identifier())
         # Record the transaction
         txs:list = self._get_transactions(date)
         txs.append(transaction)
@@ -229,14 +229,26 @@ class Portfolio:
         self._invalidate_constituents_evaluation(date+timedelta(days=1))
         return to_return
 
-    def _value_position(self, pi:PositionIdentifier, quantity:number, date:datetime)->number:
+    def get_earliest_valuation(self, pi:PositionIdentifier)->date|None:
         '''
-        Value the position
+        Return the ealiest date at which we can value the position (regardless of whether it was in the portfolio at that date or not)
         '''
-        if pi.type == CASH:
-            return CashValuator.value_position(pi, quantity, date, pi.id)
+        if pi.type == CASH and pi.id.get_identifier() != "USD":
+            return get_fx_timeseries(pi.id.get_identifier()).get_start_date()
         if pi.type == EQUITY:
-            return EquityValuator.value_position(pi, quantity, date, DEFAULT_VALUATION_DATAPOINT, pi.id.currency)
+            return get_timeseries(pi.id.get_full_ticker()).get_start_date()
+        return None
+
+    def value_position(self, pi:PositionIdentifier, date:datetime, quantity:number = None, target_currency:str=None)->number:
+        '''
+        Value the position. If quantity is None, then it is taken from the portfolio
+        '''
+        if(quantity == None): quantity = self.get_position_amount(pi, date)
+        if target_currency == None: raise PMException("You must specify the target currency when you value a position")
+        if pi.type == CASH:
+            return CashValuator.value_position(pi, quantity, date, Currency(target_currency))
+        if pi.type == EQUITY:
+            return EquityValuator.value_position(pi, quantity, date, DEFAULT_VALUATION_DATAPOINT, Currency(target_currency))
         raise NotImplementedError(f"position type {pi.type} not implemented for position valuation.")
 
 

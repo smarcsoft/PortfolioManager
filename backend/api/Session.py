@@ -71,6 +71,9 @@ class Session:
 
 
     def load_portfolio(self, name:str)->Portfolio:
+        '''
+        Load the portfolio identified by name
+        '''
         db_loc = get_config("DB_LOCATION")
         user_dir = os.path.join(db_loc,"USERS", self.user["email"])
         user_portfolio_dir = os.path.join(user_dir,"PORTFOLIOS")

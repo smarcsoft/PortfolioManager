@@ -15,7 +15,7 @@ __date_format = '%Y-%m-%d'
 TimeSeriesCache = dict[str, TimeSeries] # FullyQualifiedTicker_DataPointName, timeseries
 TickerCache = dict[str, dict[str, Ticker]] # Dictionary of (market, dictionary of (symbol name, Ticker)) for quick lookup by name
 
-DEFAULT_CURRENCY_DATAPOINT="adjusted_close"
+DEFAULT_DATAPOINT="adjusted_close"
 
 __cache = {}
 __tickercache = {}
@@ -98,7 +98,7 @@ def __get_all_exchanges():
 def get_fundamental_data(full_ticker:str)->FundamentalData:
     return FundamentalData.load(full_ticker)
 
-def get_fx_timeseries(currency:str, datapoint_name:str=DEFAULT_CURRENCY_DATAPOINT ,fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
+def get_fx_timeseries(currency:str, datapoint_name:str=DEFAULT_DATAPOINT ,fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
     try:
         if use_cache and (currency+"_"+datapoint_name in __cache):
             return __cache[currency+"_"+datapoint_name]
@@ -121,7 +121,7 @@ def get_fx_timeseries(currency:str, datapoint_name:str=DEFAULT_CURRENCY_DATAPOIN
     except FileNotFoundError:
         raise PMException("Could not find time series for currency {currency}".format(currency = currency))
 
-def get_fx(currency:str, fx_date:date, datapoint_name:str=DEFAULT_CURRENCY_DATAPOINT, fill_method=fill.FORWARDFILL, use_cache=True):
+def get_fx(currency:str, fx_date:date, datapoint_name:str=DEFAULT_DATAPOINT, fill_method=fill.FORWARDFILL, use_cache=True):
     return get_fx_timeseries(currency, datapoint_name, fill_method, use_cache).get(fx_date)
 
 def fx_convert(value:np.number, from_currency:str, to_currency:str, date:date)->np.number:
@@ -153,7 +153,7 @@ def __convert_to_usd(value:np.number, source_currency:str, date:date)->np.number
 def get_datapoint(full_ticker:str, datapoint_name:str, date:date)->np.float32:
     return get_timeseries(full_ticker, datapoint_name).get(date)
 
-def get_timeseries(full_ticker:str, datapoint_name:str, fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
+def get_timeseries(full_ticker:str, datapoint_name:str= DEFAULT_DATAPOINT, fill_method=fill.FORWARDFILL, use_cache=True)->TimeSeries:
     '''
     Return the time series of a data point. 
     Parameters:

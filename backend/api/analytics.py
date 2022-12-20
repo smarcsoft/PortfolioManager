@@ -8,6 +8,20 @@ from exceptions import PMException
 import numpy as np
 import pandas as pd
 
+def position_values(portfolio:Portfolio, date:datetime, target_ccy:str)->pd.Series:
+    positions:Positions = portfolio.get_positions(date)
+    number_of_positions = len(positions)
+    pvs = np.zeros(number_of_positions, dtype=np.float64)
+    identifiers = []
+    for i, pi in enumerate(positions):
+        identifiers.append(pi.state())
+        # Value the position 
+        pv = portfolio.value_position(pi, date, None, target_ccy)
+        pvs[i]=pv
+    # Create pandas dataframe from the underlying numpy arrays
+    return pd.Series(pvs, index = identifiers)
+
+
 def profit_and_losses(portfolio:Portfolio, date1:datetime, date2:datetime, target_ccy:str)->dict:
     '''
     Returns the profit and losses of the portfolio and each of its constituents between 2 dates 
@@ -58,7 +72,7 @@ def profit_and_losses(portfolio:Portfolio, date1:datetime, date2:datetime, targe
         
 
 class UnitTestAnalytics(unittest.TestCase):
-    def test_prodit_and_losses(self):
+    def create_portfolio(self):
         my_portfolio:Portfolio = Portfolio("DEFAULT", datetime(2021,1,18))
         my_portfolio.buy('MSCI', 2578, tags={'PERFORMANCE SHARES'}) #Performance shares
         my_portfolio.buy('MSCI', 3916, tags={'RESTRICTED SHARES'}) #Restricted shares
@@ -88,6 +102,11 @@ class UnitTestAnalytics(unittest.TestCase):
         my_portfolio.add('EUR', 75532, tags={'LIFE INSURANCE'})
         my_portfolio.add('CHF', 28724, tags={'LIFE INSURANCE'})
         my_portfolio.add('CHF', 8916, tags={'LIFE INSURANCE'})
+        return my_portfolio
+
+
+    def test_prodit_and_losses(self):
+        my_portfolio = self.create_portfolio()
         eval_date:datetime = datetime(2022,11,25)
         #Compute the P&L of the portfolio consituents between the last 2 days
         previous_day = eval_date - timedelta(days=1)
@@ -96,7 +115,11 @@ class UnitTestAnalytics(unittest.TestCase):
         df:pd.DataFrame = pandls['positions']['pandls']
         df.plot()
         
-
+    def test_position_values(self):
+        my_portfolio = self.create_portfolio()
+        eval_date:datetime = datetime(2022,11,25)
+        posv = position_values(my_portfolio, eval_date, "USD")
+        print(posv)
 
 
 if __name__ == '__main__':
